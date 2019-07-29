@@ -1,0 +1,90 @@
+data:
+  scale: 2
+  n_colors: 1
+  rgb_range: 1
+  num_workers: 8
+  train:
+    name: 'DIV2K'
+    params:
+      base_dir: './data/DIV2K'
+      augment: True
+      patch_size: 192
+      data_range: '1-800'
+      test_every: 1000
+  
+  valid:
+    name: 'DIV2K'
+    params:
+      base_dir: './data/DIV2K'
+      augment: False
+      patch_size: 192
+      data_range: '801-810'
+    
+  test:
+    name: 
+      - 'Set5'
+#       - 'Set14'
+#       - 'Manga109'
+#       - 'BSDS100'
+#       - 'Urban100'
+    params:
+      base_dir: './data/benchmark/Set5'
+
+
+teacher_model:
+  name: 'teacher'
+  params:
+    scale: 2
+    n_colors: 1
+
+
+student_model:
+  name: 'student'
+  params:
+    scale: 2
+    n_colors: 1
+
+
+hallucination_model:
+  name: 'hallucination'
+  params:
+    scale: 2
+    n_colors: 1
+
+
+train:
+  batch_size: 128
+  num_epochs: 300 
+  dir: './results/base.rgb_range1/'
+  teacher_dir: ''
+  student_dir: ''
+  hallucination_dir: ''
+  fine_tune: False
+
+eval:
+  batch_size: 1
+
+
+scheduler:
+  name: 'multi_step'
+  params:
+    milestones:
+      - 50
+      - 100
+      - 150
+      - 200
+    gamma: 0.5
+
+
+optimizer:
+  name: adam
+  params:
+    lr: 0.001
+ 
+loss:
+  name: 'l1loss'
+  params:
+    reduction: 'mean'
+
+gpu: 0
+
