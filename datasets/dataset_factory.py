@@ -7,27 +7,21 @@ from .dataset import DIV2K, Benchmark
 
 
 def get_train_dataset(config, transform=None):
-    name = config.data.train.name
     scale = config.data.scale
     n_colors = config.data.n_colors
     rgb_range = config.data.rgb_range
     batch_size = config.train.batch_size
-    if type(name) == list:
-        for n in name:
-            f = globals().get(n)
-            datasets.append(f(**config.data.train.params,
-                              scale=scale, n_colors=n_colors, rgb_range=rgb_range,
-                              batch_size=batch_size,
-                              name=n, train=True,
-                             ))
-        dataset = ConcatDataset(datasets)
-    else:
+    datasets = []
+    for train_dict in config.data.train:
+        name = train_dict.name
+        params = train_dict.params
         f = globals().get(name)
-        dataset = f(**config.data.train.params,
-                      scale=scale, n_colors=n_colors, rgb_range=rgb_range,
-                      batch_size=batch_size,
-                      name=name, train=True,
-                     )
+        datasets.append(f(**params,
+                          scale=scale, n_colors=n_colors, rgb_range=rgb_range,
+                          batch_size=batch_size,
+                          name=name, train=True,
+                         ))
+    dataset = ConcatDataset(datasets)
 
     return dataset
 
@@ -46,27 +40,21 @@ def get_train_dataloader(config, transform=None):
 
 
 def get_valid_dataset(config, transform=None):
-    name = config.data.valid.name
     scale = config.data.scale
     n_colors = config.data.n_colors
     rgb_range = config.data.rgb_range
     batch_size = 1
-    if type(name) == list:
-        for n in name:
-            f = globals().get(n)
-            datasets.append(f(**config.data.valid.params,
-                              scale=scale, n_colors=n_colors, rgb_range=rgb_range,
-                              batch_size=batch_size,
-                              name=n, train=False,
-                             ))
-        dataset = ConcatDataset(datasets)
-    else:
+    datasets = []
+    for valid_dict in config.data.valid:
+        name = valid_dict.name
+        params = valid_dict.params
         f = globals().get(name)
-        dataset = f(**config.data.valid.params,
-                      scale=scale, n_colors=n_colors, rgb_range=rgb_range,
-                      batch_size=batch_size,
-                      name=name, train=False,
-                     )
+        datasets.append(f(**params,
+                          scale=scale, n_colors=n_colors, rgb_range=rgb_range,
+                          batch_size=batch_size,
+                          name=name, train=False,
+                         ))
+    dataset = ConcatDataset(datasets)
 
     return dataset
 
@@ -85,25 +73,19 @@ def get_valid_dataloader(config, transform=None):
 
 
 def get_test_dataset(config, transform=None):
-    name = config.data.test.name
     scale = config.data.scale
     n_colors = config.data.n_colors
     rgb_range = config.data.rgb_range
     batch_size = 1
-    if type(name) == list:
-        datasets = []
-        for n in name:
-            datasets.append(Benchmark(**config.data.test.params,
-                              scale=scale, n_colors=n_colors,
-                              rgb_range=rgb_range, batch_size=batch_size,
-                              name=n))
-        dataset = ConcatDataset(datasets)
-    else:
-        dataset = Benchmark(**config.data.test.params,
-                  scale=scale, n_colors=n_colors,
-                  rgb_range=rgb_range, batch_size=batch_size,
-                  name=name)
-
+    datasets = []
+    for test_dict in config.data.test:
+        name = test_dict.name
+        params = test_dict.params
+        datasets.append(Benchmark(**params,
+                          scale=scale, n_colors=n_colors,
+                          rgb_range=rgb_range, batch_size=batch_size,
+                          name=name))
+    dataset = ConcatDataset(datasets)
     return dataset
 
 
@@ -117,45 +99,4 @@ def get_test_dataloader(config, transform=None):
                               pin_memory=False,
                               num_workers=num_workers)
     return dataloader
-
-
-
-
-
-
-
-# class Data:
-#     def __init__(self, args):
-#         self.loader_train = None
-#         if not args.test_only:
-#             datasets = []
-#             for d in args.data_train:
-#                 f = globals().get(d)
-#                 datasets.append(f(args, name=d))
-
-#             self.loader_train = MSDataLoader(
-#                 args,
-#                 MyConcatDataset(datasets),
-#                 batch_size=args.batch_size,
-#                 shuffle=True,
-#                 pin_memory=not args.cpu
-#             )
-
-#         self.loader_test = []
-#         for d in args.data_test:
-#             if d in ['Set5', 'Set14', 'B100', 'Urban100']:
-#                 testset = BenchMark(args, train=False, name=d)
-#             else:
-#                 module_name = d if d.find('DIV2K-Q') < 0 else 'DIV2KJPEG'
-#                 m = import_module('data.' + module_name.lower())
-#                 testset = getattr(m, module_name)(args, train=False, name=d)
-
-#             self.loader_test.append(MSDataLoader(
-#                 args,
-#                 testset,
-#                 batch_size=1,
-#                 shuffle=False,
-#                 pin_memory=not args.cpu
-#             ))
-
 

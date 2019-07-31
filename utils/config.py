@@ -76,8 +76,10 @@ def _merge_config(src, dst):
 def load(config_path):
     with open(config_path, 'r') as fid:
         yaml_config = edict(yaml.load(fid))
-
+    with open(yaml_config.base_config, 'r') as fid:
+        base_config = edict(yaml.load(fid))
     config = _get_default_config()
+    _merge_config(base_config, config)
     _merge_config(yaml_config, config)
     
     set_model_weight_dirs(config)
@@ -86,14 +88,17 @@ def load(config_path):
 
 
 def set_model_weight_dirs(config):
-    teacher_dir = os.path.join(config.train.dir, config.teacher_model.name)
-    student_dir = os.path.join(config.train.dir, config.student_model.name)
-    hallucination_dir = os.path.join(config.train.dir, 
-                                     config.hallucination_model.name)
     
-    config.train.teacher_dir = teacher_dir
-    config.train.student_dir = student_dir
-    config.train.hallucination_dir = hallucination_dir
+    if 'name' in config.teacher_model:
+        teacher_dir = os.path.join(config.train.dir, config.teacher_model.name)
+        config.train.teacher_dir = teacher_dir + config.train.teacher_dir
+    if 'name' in config.student_model:
+        student_dir = os.path.join(config.train.dir, config.student_model.name)
+        config.train.student_dir = student_dir + config.train.student_dir
+    if 'name' in config.hallucination_model:
+        hallucination_dir = os.path.join(config.train.dir, 
+                                         config.hallucination_model.name)
+        config.train.hallucination_dir = hallucination_dir + config.train.hallucination_dir
     
     
 

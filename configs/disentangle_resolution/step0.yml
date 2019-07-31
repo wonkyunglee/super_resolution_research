@@ -1,0 +1,39 @@
+base_config: 'configs/disentangle_resolution/base.yml'
+
+
+student_model:
+  name: 'disentangle_student'
+  params:
+    scale: 2
+    n_colors: 1
+
+
+train:
+  batch_size: 128
+  num_epochs: 300 
+  student_dir: '.base'
+  fine_tune: False
+
+
+eval:
+  batch_size: 1
+
+
+scheduler:
+  name: 'none'
+
+
+optimizer:
+  name: adam
+  params:
+    lr: 0.0001
+ 
+ 
+loss:
+  name: 'l1loss'
+  params:
+    reduction: 'mean'
+
+
+gpu: 2
+
