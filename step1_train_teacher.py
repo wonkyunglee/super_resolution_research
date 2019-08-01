@@ -37,7 +37,7 @@ def adjust_learning_rate(config, epoch):
     return lr
 
 def train_single_epoch(config, model, dataloader, criterion,
-                       optimizer, epoch, writer, 
+                       optimizer, epoch, writer,
                        visualizer, postfix_dict):
     model.train()
     batch_size = config.train.batch_size
@@ -80,10 +80,10 @@ def train_single_epoch(config, model, dataloader, criterion,
             if writer is not None:
                 for key, value in log_dict.items():
                     writer.add_scalar('train/{}'.format(key), value, log_step)
-                
+
 
 def evaluate_single_epoch(config, model, dataloader, criterion,
-                          epoch, writer, visualizer, 
+                          epoch, writer, visualizer,
                           postfix_dict, eval_type):
     model.eval()
     with torch.no_grad():
@@ -105,7 +105,7 @@ def evaluate_single_epoch(config, model, dataloader, criterion,
 
             pred = quantize(pred_hr, config.data.rgb_range)
             total_psnr += get_psnr(pred, HR_img, config.data.scale,
-                                  config.data.rgb_range, 
+                                  config.data.rgb_range,
                                   benchmark=eval_type=='test')
 
             f_epoch = epoch + i / total_step
@@ -113,12 +113,12 @@ def evaluate_single_epoch(config, model, dataloader, criterion,
             desc += ', {:06d}/{:06d}, {:.2f} epoch'.format(i, total_step, f_epoch)
             tbar.set_description(desc)
             tbar.set_postfix(**postfix_dict)
-            
+
             if writer is not None and eval_type == 'test':
                 fig = visualizer(LR_img, HR_img, pred_dict)
-                writer.add_figure('{}/{:04d}'.format(eval_type, i), fig, 
+                writer.add_figure('{}/{:04d}'.format(eval_type, i), fig,
                                  global_step=epoch)
-                
+
 
         log_dict = {}
         avg_loss = total_loss / (i+1)
@@ -142,30 +142,30 @@ def train(config, model, dataloaders, criterion,
     postfix_dict = {'train/lr': 0.0,
                     'train/loss': 0.0,
                     'val/psnr': 0.0,
-                    'val/loss': 0.0, 
-                    'test/psnr': 0.0, 
+                    'val/loss': 0.0,
+                    'test/psnr': 0.0,
                     'test/loss': 0.0}
     psnr_list = []
     best_psnr = 0.0
     best_psnr_mavg = 0.0
     for epoch in range(start_epoch, num_epochs):
-        
+
         # test phase
         evaluate_single_epoch(config, model, dataloaders['test'],
                               criterion, epoch, writer,
                               visualizer, postfix_dict,
                               eval_type='test')
-        
+
         # val phase
         psnr = evaluate_single_epoch(config, model, dataloaders['val'],
-                                     criterion, epoch, writer, 
-                                     visualizer, postfix_dict, 
+                                     criterion, epoch, writer,
+                                     visualizer, postfix_dict,
                                      eval_type='val')
         if config.scheduler.name == 'reduce_lr_on_plateau':
             scheduler.step(psnr)
         elif config.scheduler.name != 'reduce_lr_on_plateau':
             scheduler.step()
-            
+
         utils.checkpoint.save_checkpoint(config, model, optimizer, epoch, 0,
                                          model_type=model_type)
         psnr_list.append(psnr)
@@ -179,7 +179,7 @@ def train(config, model, dataloaders, criterion,
 
         # train phase
         train_single_epoch(config, model, dataloaders['train'],
-                           criterion, optimizer, epoch, writer, 
+                           criterion, optimizer, epoch, writer,
                            visualizer, postfix_dict)
 
 
@@ -214,7 +214,7 @@ def run(config):
     dataloaders = {'train':get_train_dataloader(config),
                    'val':get_valid_dataloader(config),
                    'test':get_test_dataloader(config)}
-    
+
     writer = SummaryWriter(config.train[model_type + '_dir'])
     visualizer = get_visualizer(config)
     train(config, model, dataloaders, criterion, optimizer, scheduler,
