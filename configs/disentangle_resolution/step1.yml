@@ -35,5 +35,9 @@ loss:
     reduction: 'mean'
 
 
+visualizer:
+  name: 'step1'
+
+
 gpu: 2
 

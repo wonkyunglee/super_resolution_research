@@ -38,9 +38,16 @@ optimizer:
  
 
 loss:
-  name: 'l1loss'
+  name: 'distillation_loss'
   params:
     reduction: 'mean'
+    distill:
+    # - 'teacher_layer_name:student_layer_name:weight'
+      - 'encoded:encoded:1'
+      
+
+visualizer:
+  name: 'step2'
 
 
 gpu: 2

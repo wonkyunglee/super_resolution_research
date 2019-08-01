@@ -21,7 +21,7 @@ from models import get_model
 from losses import get_loss
 from optimizers import get_optimizer
 from schedulers import get_scheduler
-
+from visualizers import get_visualizer
 from tensorboardX import SummaryWriter
 
 import utils.config
@@ -37,7 +37,8 @@ def adjust_learning_rate(config, epoch):
     return lr
 
 def train_single_epoch(config, model, dataloader, criterion,
-                       optimizer, epoch, writer, postfix_dict):
+                       optimizer, epoch, writer, 
+                       visualizer, postfix_dict):
     model.train()
     batch_size = config.train.batch_size
     total_size = len(dataloader.dataset)
@@ -79,18 +80,10 @@ def train_single_epoch(config, model, dataloader, criterion,
                 for key, value in log_dict.items():
                     writer.add_scalar('train/{}'.format(key), value, log_step)
                 
-                fig = get_SR_image_figure(pred_hr[0], pred_hr[0], HR_patch[0])
-                writer.add_figure('train/{:04d}'.format(i), fig, 
-                                 global_step=epoch)
-                fig = get_SR_image_figure(LR_patch[0], 
-                                          residual_hr[0], 
-                                          pred_hr[0] - HR_patch[0])
-                writer.add_figure('train/{:04d}_diff'.format(i), fig, 
-                                 global_step=epoch)
-        
 
 def evaluate_single_epoch(config, model, dataloader, criterion,
-                          epoch, writer, postfix_dict, eval_type):
+                          epoch, writer, visualizer, 
+                          postfix_dict, eval_type):
     model.eval()
     with torch.no_grad():
         batch_size = config.eval.batch_size
@@ -120,15 +113,10 @@ def evaluate_single_epoch(config, model, dataloader, criterion,
             tbar.set_postfix(**postfix_dict)
             
             if writer is not None and eval_type == 'test':
-                fig = get_SR_image_figure(pred_hr[0], pred_hr[0], HR_img[0])
+                fig = visualizer(LR_img, HR_img, pred_dict)
                 writer.add_figure('{}/{:04d}'.format(eval_type, i), fig, 
                                  global_step=epoch)
-                fig = get_SR_image_figure(LR_img[0], 
-                                          residual_hr[0], 
-                                          pred_hr[0] - HR_img[0])
-                writer.add_figure('{}/{:04d}_diff'.format(eval_type, i), fig, 
-                                 global_step=epoch)
-            
+                
 
         log_dict = {}
         avg_loss = total_loss / (i+1)
@@ -145,7 +133,7 @@ def evaluate_single_epoch(config, model, dataloader, criterion,
 
 
 def train(config, model, dataloaders, criterion,
-          optimizer, scheduler, writer, start_epoch):
+          optimizer, scheduler, writer, visualizer, start_epoch):
     num_epochs = config.train.num_epochs
     # if torch.cuda.device_count() > 1:
     #     model = torch.nn.DataParallel(model)
@@ -162,12 +150,14 @@ def train(config, model, dataloaders, criterion,
         
         # test phase
         evaluate_single_epoch(config, model, dataloaders['test'],
-                              criterion, epoch, writer, postfix_dict,
+                              criterion, epoch, writer,
+                              visualizer, postfix_dict,
                               eval_type='test')
         
         # val phase
         psnr = evaluate_single_epoch(config, model, dataloaders['val'],
-                                   criterion, epoch, writer, postfix_dict, 
+                                     criterion, epoch, writer, 
+                                     visualizer, postfix_dict, 
                                      eval_type='val')
         if config.scheduler.name == 'reduce_lr_on_plateau':
             scheduler.step(psnr)
@@ -187,7 +177,8 @@ def train(config, model, dataloaders, criterion,
 
         # train phase
         train_single_epoch(config, model, dataloaders['train'],
-                           criterion, optimizer, epoch, writer, postfix_dict)
+                           criterion, optimizer, epoch, writer, 
+                           visualizer, postfix_dict)
 
 
     return {'psnr': best_psnr, 'psnr_mavg': best_psnr_mavg}
@@ -221,8 +212,9 @@ def run(config):
                    'test':get_test_dataloader(config)}
     
     writer = SummaryWriter(config.train[model_type + '_dir'])
+    visualizer = get_visualizer(config)
     train(config, model, dataloaders, criterion, optimizer, scheduler,
-          writer, last_epoch+1)
+          writer, visualizer, last_epoch+1)
 
 
 def parse_args():

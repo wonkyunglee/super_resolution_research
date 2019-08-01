@@ -15,13 +15,12 @@ from skimage.io import imread
 import skimage
 import math
 import time
-#from utils.imresize import imresize
 from datasets import get_train_dataloader, get_valid_dataloader, get_test_dataloader
 from models import get_model
 from losses import get_loss
 from optimizers import get_optimizer
 from schedulers import get_scheduler
-1
+from visualizers import get_visualizer 
 from tensorboardX import SummaryWriter
 
 import utils.config
@@ -36,7 +35,8 @@ def adjust_learning_rate(config, epoch):
     return lr
 
 def train_single_epoch(config, student_model, dataloader, criterion,
-                       optimizer, epoch, writer, postfix_dict):
+                       optimizer, epoch, writer, visualizer, 
+                       postfix_dict):
     student_model.train() 
     batch_size = config.train.batch_size
     total_size = len(dataloader.dataset)
@@ -51,7 +51,9 @@ def train_single_epoch(config, student_model, dataloader, criterion,
 
         optimizer.zero_grad()
         
-        pred_hr, student_residual_hr = student_model.forward(x=LR_patch)
+        pred_dict = student_model.forward(x=LR_patch)
+        pred_hr = pred_dict['hr']
+        student_residual_hr = pred_dict['residual_hr']
         loss = criterion(pred_hr, HR_patch) 
         log_dict['loss'] = loss.item()
 
@@ -81,7 +83,8 @@ def train_single_epoch(config, student_model, dataloader, criterion,
 
 
 def evaluate_single_epoch(config, student_model, dataloader, 
-                          criterion, epoch, writer, postfix_dict, eval_type):
+                          criterion, epoch, writer, visualizer, 
+                          postfix_dict, eval_type):
     student_model.eval()
     with torch.no_grad():
         batch_size = config.eval.batch_size
@@ -91,17 +94,17 @@ def evaluate_single_epoch(config, student_model, dataloader,
         tbar = tqdm.tqdm(enumerate(dataloader), total=total_step)
 
         total_psnr = 0
-        total_psnr_bic = 0
         total_loss = 0
         for i, (LR_img, HR_img, filepath) in tbar:
             HR_img = HR_img[:,:1].to(device)
             LR_img = LR_img[:,:1].to(device)
-            pred_hr, student_residual_hr = student_model.forward(x=LR_img)
-            loss = criterion(pred_hr, HR_img) 
+            pred_dict = student_model.forward(x=LR_img)
+            pred_hr = pred_dict['hr']
+            student_residual_hr = pred_dict['residual_hr']
             total_loss += criterion(pred_hr, HR_img).item()
 
-            pred = quantize(pred_hr, config.data.rgb_range)
-            total_psnr += get_psnr(pred, HR_img, config.data.scale,
+            pred_hr = quantize(pred_hr, config.data.rgb_range)
+            total_psnr += get_psnr(pred_hr, HR_img, config.data.scale,
                                   config.data.rgb_range, 
                                   benchmark=eval_type=='test')
 
@@ -111,16 +114,8 @@ def evaluate_single_epoch(config, student_model, dataloader,
             tbar.set_description(desc)
             tbar.set_postfix(**postfix_dict)
             if writer is not None and eval_type == 'test':
-                fig = get_SR_image_figure(pred_hr[0]-student_residual_hr[0], 
-                                          pred_hr[0], HR_img[0])
+                fig = visualizer(LR_img, HR_img, pred_dict)
                 writer.add_figure('{}/{:04d}'.format(eval_type, i), fig, 
-                                 global_step=epoch)
-                fig = get_SR_image_figure(
-                    pred_hr[0] - student_residual_hr[0] - nn.functional.interpolate(LR_img, scale_factor=2,
-                                        mode='bicubic')[0], 
-                                          student_residual_hr[0], 
-                                          pred_hr[0] - HR_img[0])
-                writer.add_figure('{}/{:04d}_diff'.format(eval_type, i), fig, 
                                  global_step=epoch)
 
         log_dict = {}
@@ -138,7 +133,7 @@ def evaluate_single_epoch(config, student_model, dataloader,
 
 
 def train(config, student_model, dataloaders, criterion,
-          optimizer, scheduler, writer, start_epoch):
+          optimizer, scheduler, writer, visualizer, start_epoch):
     num_epochs = config.train.num_epochs
     if torch.cuda.device_count() > 1:
         student_model = torch.nn.DataParallel(student_model)
@@ -163,7 +158,8 @@ def train(config, student_model, dataloaders, criterion,
         # val phase
         psnr = evaluate_single_epoch(config, student_model,
                                      dataloaders['val'],
-                                     criterion, epoch, writer, postfix_dict, 
+                                     criterion, epoch, writer, 
+                                     visualizer, postfix_dict, 
                                      eval_type='val')
         if config.scheduler.name == 'reduce_lr_on_plateau':
             scheduler.step(psnr)
@@ -185,7 +181,8 @@ def train(config, student_model, dataloaders, criterion,
         # train phase
         train_single_epoch(config, student_model,
                            dataloaders['train'],
-                           criterion, optimizer, epoch, writer, postfix_dict)
+                           criterion, optimizer, epoch, writer, 
+                           visualizer, postfix_dict)
 
 
     return {'psnr': best_psnr, 'psnr_mavg': best_psnr_mavg}
@@ -219,8 +216,9 @@ def run(config):
                    'val':get_valid_dataloader(config),
                    'test':get_test_dataloader(config)}
     writer = SummaryWriter(config.train['student' + '_dir'])
+    visualizer = get_visualizer(config)
     train(config, student_model, dataloaders,
-          criterion, optimizer, scheduler, writer, last_epoch+1)
+          criterion, optimizer, scheduler, writer, visualizer, last_epoch+1)
 
 
 def parse_args():
