@@ -55,7 +55,7 @@ def train_single_epoch(config, student_model, teacher_model, dataloader, criteri
         
         teacher_pred_dict = teacher_model.forward(LR=LR_patch, HR=HR_patch)
         teacher_residual_hr = teacher_pred_dict['residual_hr']
-        student_pred_dict = student_model.forward(LR=LR_patch)
+        student_pred_dict = student_model.forward(LR=LR_patch, teacher_pred_dict=teacher_pred_dict)
         pred_hr = student_pred_dict['hr']
         student_residual_hr = student_pred_dict['residual_hr']
         loss = criterion['train'](teacher_pred_dict, student_pred_dict, HR_patch)

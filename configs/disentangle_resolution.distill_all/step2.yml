@@ -16,7 +16,11 @@ student_model:
     # modules_to_freeze:
      #  - feature_extraction
      #  - mapping
-
+    # initialize_from: 'results/disentangle_resolution.distill_all/student_model'
+    # modules_to_initialize:
+    #    - feature_extraction
+    #    - mapping
+            
 
 train:
   batch_size: 32

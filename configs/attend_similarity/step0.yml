@@ -1,8 +1,8 @@
-base_config: 'configs/disentangle_resolution.distill_all/base.yml'
+base_config: 'configs/attend_similarity/base.yml'
 
 
 student_model:
-  name: 'disentangle_student'
+  name: 'attend_similarity_student'
   params:
     scale: 2
     n_colors: 1

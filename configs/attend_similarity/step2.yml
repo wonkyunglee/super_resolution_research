@@ -1,0 +1,60 @@
+base_config: 'configs/attend_similarity/base.yml'
+
+
+teacher_model:
+  name: 'attend_similarity_teacher'
+  params:
+    scale: 2
+    n_colors: 1
+
+
+student_model:
+  name: 'attend_similarity_student'
+  params:
+    scale: 2
+    n_colors: 1
+    layers_to_attend:
+      - 'mapping'
+    # modules_to_freeze:
+     #  - 'feature_extraction'
+     #  - 'mapping'
+    # initialize_from: 'results/disentangle_resolution.distill_all/student_model'
+    # modules_to_initialize:
+    #    - 'feature_extraction'
+    #    - 'mapping'
+        
+
+train:
+  batch_size: 32
+  num_epochs: 1000 
+  teacher_dir: ''
+  student_dir: ''
+  fine_tune: False
+
+
+eval:
+  batch_size: 1
+
+
+scheduler:
+  name: 'none'
+
+
+optimizer:
+  name: adam
+  params:
+    lr: 0.0001
+ 
+
+loss:
+  name: 'attend_similarity_loss'
+  params:
+    reduction: 'mean'
+      
+
+visualizer:
+  name: 'step2'
+
+
+gpu: 2
+
