@@ -57,6 +57,9 @@ def _get_default_config():
     c.transform.name = None
     c.transform.params = edict()
 
+    c.visualizer = edict()
+    c.visualizer.name = None
+    c.visualizer.params = edict()
     return c
 
 

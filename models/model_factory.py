@@ -1,10 +1,10 @@
 import torch.nn as nn
 import torch.nn.functional as F
-
+from collections import OrderedDict
                     
-class ModifiedFSRCNN(nn.Module):
+class ModifiedFSRCNN_original(nn.Module):
     def __init__(self, scale, n_colors):
-        super(ModifiedFSRCNN, self).__init__()
+        super(ModifiedFSRCNN_original, self).__init__()
 
         d = 56
         s = 12
@@ -67,22 +67,112 @@ class ModifiedFSRCNN(nn.Module):
     def forward(self, x):
         return self.network(x)
 
-                    
+    
+class ModifiedFSRCNN(nn.Module):
+    def __init__(self, scale, n_colors, d=56, s=12, m_1=4, m_2=3):
+        super(ModifiedFSRCNN, self).__init__()
+
+        
+        self.scale = scale
+        upscale_factor = scale
+                
+        self.feature_extraction = []
+        self.feature_extraction.append(nn.Sequential(
+            nn.Conv2d(in_channels=n_colors, 
+                      out_channels=d, kernel_size=3, stride=1, padding=1),
+            nn.PReLU(),
+            nn.Conv2d(in_channels=d, out_channels=d,
+                      kernel_size=3, stride=1, padding=1),
+            nn.PReLU()))
+            
+        self.shirinking = []
+        self.shirinking.append(nn.Sequential(
+            nn.Conv2d(in_channels=d, out_channels=s, 
+                      kernel_size=1, stride=1, padding=0),
+            nn.PReLU()))
+        
+        self.mapping = []
+        for _ in range(m_1):
+            self.mapping.append(nn.Sequential(
+                nn.Conv2d(in_channels=s, out_channels=s, 
+                          kernel_size=3, stride=1, padding=1),
+                nn.PReLU()))
+        
+        self.expanding = []
+        self.expanding.append(nn.Sequential(
+            nn.Conv2d(in_channels=s, out_channels=d, 
+                      kernel_size=1, stride=1, padding=0),
+            nn.PReLU()))
+        
+        
+        self.expanding.append(nn.Sequential(
+            nn.Conv2d(in_channels=d, out_channels=s,
+                      kernel_size=1, stride=1, padding=0),
+            nn.PReLU()))
+        
+        self.mapping2 = []
+        ## last layer has the 4-depth layers
+        for _ in range(m_2):
+            self.mapping2.append(nn.Sequential(
+                nn.Conv2d(in_channels=s, out_channels=s, 
+                          kernel_size=3, stride=1, padding=1),
+                nn.PReLU()))
+
+        self.expanding2 = []
+        self.expanding2.append(nn.Sequential(
+            nn.Conv2d(in_channels=s, out_channels=d,
+                       kernel_size=1, stride=1, 
+                       padding=0),
+            nn.PReLU()))
+                
+        self.network = nn.Sequential(
+            OrderedDict([
+                ('feature_extraction', nn.Sequential(*self.feature_extraction)),
+                ('shirinking', nn.Sequential(*self.shirinking)),
+                ('mapping', nn.Sequential(*self.mapping)),
+                ('expanding', nn.Sequential(*self.expanding)),
+                ('mapping2', nn.Sequential(*self.mapping2)),
+                ('expanding2', nn.Sequential(*self.expanding2))
+            ]))
+
+    
+    def forward(self, x):
+        return self.network(x)
+    
+    
+
 class DisentangleTeacherNet(nn.Module):
-    def __init__(self, scale, n_colors):
+    def __init__(self, scale, n_colors, modules_to_freeze=None):
         super(DisentangleTeacherNet, self).__init__()
 
         self.scale = scale
+        d = 56
+        s = 12
+        m_1 = 4
+        m_2 = 3
         
-        self.hr_network = ModifiedFSRCNN(scale, n_colors)
+        self.fsrcnn = ModifiedFSRCNN(scale, n_colors, d, s, m_1, m_2)
+        self.last_layer = nn.Conv2d(d, 1, kernel_size=3, stride=1, padding=1)
+        self.weight_init()
+        self.freeze_modules(modules_to_freeze)
         
     
-    def forward(self, lr, hr):
-        residual_hr = self.hr_network(hr)
-        lr = nn.functional.interpolate(lr, scale_factor=self.scale,
+    def forward(self, LR, HR):
+        ret_dict = dict()
+        
+        x = HR
+        layer_names = self.fsrcnn.network._modules.keys()
+        for layer_name in layer_names:
+            x = self.fsrcnn.network._modules[layer_name](x)
+            ret_dict[layer_name] = x
+        
+        residual_hr = self.last_layer(x)
+        LR = nn.functional.interpolate(LR, scale_factor=self.scale,
                                         mode='bicubic')
-        hr = lr + residual_hr
-        return hr, residual_hr
+        hr = LR + residual_hr
+        ret_dict['hr'] = hr
+        ret_dict['residual_hr'] = residual_hr
+        return ret_dict
     
     
     def weight_init(self, mean=0.0, std=0.001):
@@ -96,10 +186,17 @@ class DisentangleTeacherNet(nn.Module):
                 m.weight.data.normal_(mean, std)
                 if m.bias is not None:
                     m.bias.data.zero_()
+                    
+                    
+    def freeze_network(self, modules_to_freeze):
+        for k, m in a.fsrcnn.network._modules.items():
+            if k in modules_to_freeze:
+                for param in m.parameters():
+                    paramrequires_grad = False
 
                     
 class DisentangleStudentNet(nn.Module):
-    def __init__(self, scale, n_colors):
+    def __init__(self, scale, n_colors, modules_to_freeze=None):
         super(DisentangleStudentNet, self).__init__()
 
         self.scale = scale
@@ -107,22 +204,34 @@ class DisentangleStudentNet(nn.Module):
         d = 56
         s = 12
         m_1 = 4
-        m_2 = 3        
-        base_net = ModifiedFSRCNN(scale, n_colors)
-        self.hr_network = nn.Sequential(
-                        base_net.network[:-1],
-                        nn.Conv2d(d, upscale_factor ** 2, kernel_size=3, 
-                                  stride=1, padding=1), 
-                        nn.PixelShuffle(upscale_factor)
-                        )
+        m_2 = 3
+
+        self.fsrcnn = ModifiedFSRCNN(scale, n_colors, d, s, m_1, m_2)
+        self.last_layer = nn.Conv2d(d, 1, kernel_size=3, stride=1, padding=1)
+#         self.last_layer = nn.Sequential(
+#                         nn.Conv2d(d, upscale_factor ** 2, kernel_size=3, 
+#                                   stride=1, padding=1), 
+#                         nn.PixelShuffle(upscale_factor)
+#                         )
+        self.weight_init()
+        self.freeze_modules(modules_to_freeze)
         
+    def forward(self, LR):
+        ret_dict = dict()
+        upscaled_lr = nn.functional.interpolate(LR, scale_factor=self.scale, mode='bicubic')
+        x = upscaled_lr
         
-    def forward(self, x):
-        hr_residual = self.hr_network(x)
-        upscaled_lr = nn.functional.interpolate(x, scale_factor=self.scale,
-                                        mode='bicubic')
-        hr = upscaled_lr + hr_residual
-        return hr, hr_residual
+        layer_names = self.fsrcnn.network._modules.keys()
+        for layer_name in layer_names:
+            x = self.fsrcnn.network._modules[layer_name](x)
+            ret_dict[layer_name] = x
+        
+        residual_hr = self.last_layer(x)
+        
+        hr = upscaled_lr + residual_hr
+        ret_dict['hr'] = hr
+        ret_dict['residual_hr'] = residual_hr
+        return ret_dict
     
     
     def weight_init(self, mean=0.0, std=0.001):
@@ -136,7 +245,13 @@ class DisentangleStudentNet(nn.Module):
                 m.weight.data.normal_(mean, std)
                 if m.bias is not None:
                     m.bias.data.zero_()
+                    
 
+    def freeze_network(self, modules_to_freeze):
+        for k, m in a.fsrcnn.network._modules.items():
+            if k in modules_to_freeze:
+                for param in m.parameters():
+                    paramrequires_grad = False
 
 
 # For Resolution Disentangling Experiments
@@ -160,226 +275,3 @@ def get_model(config, model_type):
 
     
     
-    
-    
-# class StudentNet(nn.Module):
-#     def __init__(self, scale, n_colors):
-#         super(StudentNet, self).__init__()
-
-#         d = 56
-#         s = 12
-#         m_1 = 4
-#         m_2 = 3
-        
-#         upscale_factor = scale
-        
-#         self.layers = []
-#         self.layers.append(nn.Sequential(
-#             nn.Conv2d(in_channels=n_colors, 
-#                       out_channels=d, kernel_size=3, stride=1, padding=1),
-#             nn.PReLU(),
-#             nn.Conv2d(in_channels=d, out_channels=d,
-#                       kernel_size=3, stride=1, padding=1),
-#             nn.PReLU()))
-        
-#         self.first_layer = nn.Sequential(*self.layers)
-            
-#         self.layers = []
-#         self.layers.append(nn.Sequential(
-#             nn.Conv2d(in_channels=d, out_channels=s, 
-#                       kernel_size=1, stride=1, padding=0),
-#             nn.PReLU()))
-        
-#         for _ in range(m_1):
-#             self.layers.append(nn.Sequential(
-#                 nn.Conv2d(in_channels=s, out_channels=s, 
-#                           kernel_size=3, stride=1, padding=1),
-#                 nn.PReLU()))
-    
-#         self.layers.append(nn.Sequential(
-#             nn.Conv2d(in_channels=s, out_channels=d, 
-#                       kernel_size=1, stride=1, padding=0),
-#             nn.PReLU()))
-        
-#         self.mid_part = nn.Sequential(*self.layers)
-        
-#         self.layers = []
-#         self.layers.append(nn.Sequential(
-#             nn.Conv2d(in_channels=d, out_channels=s,
-#                       kernel_size=1, stride=1, padding=0),
-#             nn.PReLU()))
-        
-        
-#         ## last layer has the 4-depth layers
-#         for _ in range(m_2):
-#             self.layers.append(nn.Sequential(
-#                 nn.Conv2d(in_channels=s, out_channels=s, 
-#                           kernel_size=3, stride=1, padding=1),
-#                 nn.PReLU()))
-
-#         self.layers.append(nn.Sequential(
-#             nn.Conv2d(in_channels=s, out_channels=d,
-#                        kernel_size=1, stride=1, 
-#                        padding=0),
-#             nn.PReLU()))
-            
-#         self.layers.append(
-#             nn.Conv2d(d, upscale_factor ** 2, kernel_size=3, stride=1, padding=1))
-        
-#         self.last_part = nn.Sequential(*self.layers)
-#         self.pixel_shuffle = nn.PixelShuffle(upscale_factor)
-        
-    
-#     def forward(self, lr, atten):
-#         mid_part1 = self.first_layer(lr)
-#         mid_part2 = self.mid_part(mid_part1)
-#         out = self.last_part(mid_part2 * atten)
-#         out = self.pixel_shuffle(out)
-        
-#         return out, mid_part1, mid_part2
-    
-    
-#     def weight_init(self, mean=0.0, std=0.001):
-#         for m in self.modules():
-#             if isinstance(m, nn.Conv2d):
-#                 nn.init.kaiming_normal_(m.weight)
-#                 if m.bias is not None:
-#                     m.bias.data.zero_()
-                    
-#             if isinstance(m, nn.ConvTranspose2d):
-#                 m.weight.data.normal_(mean, std)
-#                 if m.bias is not None:
-#                     m.bias.data.zero_()
-
-                    
-# class TeacherNet(nn.Module):
-#     def __init__(self, scale, n_colors):
-#         super(TeacherNet, self).__init__()
-
-#         d = 56
-#         s = 12
-#         m_1 = 4
-        
-#         upscale_factor = scale
-        
-#         self.first_layer = nn.Sequential(
-#             nn.Conv2d(in_channels=n_colors, 
-#                       out_channels=d, kernel_size=3, stride=1, padding=1),
-#             nn.PReLU())
-        
-#         self.layers = []
-#         self.layers.append(nn.Sequential(
-#             nn.Conv2d(in_channels=d, out_channels=s, 
-#                       kernel_size=1, stride=1, padding=0),
-#             nn.PReLU()))
-        
-#         for _ in range(m_1):
-#             self.layers.append(nn.Sequential(
-#                 nn.Conv2d(in_channels=s, out_channels=s, 
-#                           kernel_size=3, stride=1, padding=1),
-#                 nn.PReLU()))
-    
-#         self.layers.append(nn.Sequential(
-#             nn.Conv2d(in_channels=s, out_channels=d, 
-#                       kernel_size=1, stride=1, padding=0),
-#             nn.PReLU()))
-        
-#         self.mid_part = nn.Sequential(*self.layers)
-        
-#     def forward(self, x):
-        
-#         mid_part1 = self.first_layer(x)
-#         mid_part2 = self.mid_part(mid_part1)
-#         _, _, cha, _ = mid_part2.size()
-#         atten1 = F.avg_pool2d(mid_part2, kernel_size=2)  # 56 channels
-#         atten2 = F.avg_pool2d(atten1, kernel_size=2)
-#         atten3 = F.avg_pool2d(atten2, kernel_size=2)
-        
-#         return F.sigmoid(atten1), F.sigmoid(atten2), F.sigmoid(atten3), F.sigmoid(mid_part2)
-    
-    
-#     def weight_init(self, mean=0.0, std=0.001):
-#         for m in self.modules():
-#             if isinstance(m, nn.Conv2d):
-#                 nn.init.kaiming_normal_(m.weight)
-#                 if m.bias is not None:
-#                     m.bias.data.zero_()
-                    
-#             if isinstance(m, nn.ConvTranspose2d):
-#                 m.weight.data.normal_(mean, std)
-#                 if m.bias is not None:
-#                     m.bias.data.zero_()
-                    
-                    
-# class HalluNet(nn.Module):
-#     # [TODO] refactoring
-#     def __init__(self, scale, n_colors):
-#         super(HalluNet, self).__init__()
-
-#         d = 56
-#         s = 12
-#         m_1 = 4
-        
-#         upscale_factor = scale
-        
-#         self.first_layer = nn.Sequential(
-#             nn.Conv2d(in_channels=n_colors, out_channels=d, 
-#                       kernel_size=3, stride=1, padding=1),
-#             nn.PReLU())
-        
-#         self.layers = []
-#         self.layers.append(nn.Sequential(
-#             nn.Conv2d(in_channels=d, out_channels=s, 
-#                       kernel_size=1, stride=1, padding=0),
-#             nn.PReLU()))
-        
-#         for _ in range(m_1):
-#             self.layers.append(nn.Sequential(
-#                 nn.Conv2d(in_channels=s, out_channels=s,
-#                           kernel_size=3, stride=1, padding=1),
-#                 nn.PReLU()))
-    
-#         self.layers.append(nn.Sequential(
-#             nn.Conv2d(in_channels=s, out_channels=d, 
-#                       kernel_size=1, stride=1, padding=0),
-#             nn.PReLU()))
-        
-#         self.mid_part = nn.Sequential(*self.layers)
-        
-        
-#     def forward(self, lr):
-        
-#         mid_part1 = self.first_layer(lr)
-#         mid_part2 = self.mid_part(mid_part1)
-#         _, _, cha, _ = mid_part2.size()
-#         atten1 = F.avg_pool2d(mid_part2, kernel_size=2)  # 56 channels
-#         atten2 = F.avg_pool2d(atten1, kernel_size=2)
-#         atten3 = F.avg_pool2d(atten2, kernel_size=2)
-        
-#         return F.sigmoid(atten1), F.sigmoid(atten2), F.sigmoid(atten3), F.sigmoid(mid_part1)
-    
-    
-#     def weight_init(self, mean=0.0, std=0.001):
-#         for m in self.modules():
-#             if isinstance(m, nn.Conv2d):
-#                 nn.init.kaiming_normal_(m.weight)
-#                 if m.bias is not None:
-#                     m.bias.data.zero_()
-                    
-#             if isinstance(m, nn.ConvTranspose2d):
-#                 m.weight.data.normal_(mean, std)
-#                 if m.bias is not None:
-#                     m.bias.data.zero_()
-
-
-                    
-# def get_student(scale, n_colors, **kwargs):
-#     return StudentNet(scale, n_colors, **kwargs)
-
-
-# def get_teacher(scale, n_colors, **kwargs):
-#     return TeacherNet(scale, n_colors, **kwargs)
-
-
-# def get_hallucination(scale, n_colors, **kwargs):
-#     return HalluNet(scale, n_colors, **kwargs)

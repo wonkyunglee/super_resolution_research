@@ -26,8 +26,8 @@ from tensorboardX import SummaryWriter
 
 import utils.config
 import utils.checkpoint
-from utils.utils import quantize, get_SR_image_figure
 from utils.metrics import get_psnr
+from utils.utils import quantize
 
 device = None
 model_tyep = None
@@ -53,9 +53,9 @@ def train_single_epoch(config, student_model, teacher_model, dataloader, criteri
 
         optimizer.zero_grad()
         
-        teacher_pred_dict = teacher_model.forward(lr=LR_patch, hr=HR_patch)
+        teacher_pred_dict = teacher_model.forward(LR=LR_patch, HR=HR_patch)
         teacher_residual_hr = teacher_pred_dict['residual_hr']
-        student_pred_dict = student_model.forward(x=LR_patch)
+        student_pred_dict = student_model.forward(LR=LR_patch)
         pred_hr = student_pred_dict['hr']
         student_residual_hr = student_pred_dict['residual_hr']
         loss = criterion['train'](teacher_pred_dict, student_pred_dict, HR_patch)
@@ -105,11 +105,10 @@ def evaluate_single_epoch(config, student_model, teacher_model, dataloader,
             HR_img = HR_img[:,:1].to(device)
             LR_img = LR_img[:,:1].to(device)
             
-            pred_dict = student_model.forward(x=LR_img)
-            pred_hr = pred_dict['hr']
-            student_residual_hr = pred_dict['residual_hr']
-            loss = criterion['val'](pred_hr, HR_img) 
-            total_loss += criterion(pred_hr, HR_img).item()
+            student_pred_dict = student_model.forward(LR=LR_img)
+            pred_hr = student_pred_dict['hr']
+            student_residual_hr = student_pred_dict['residual_hr']
+            total_loss += criterion['val'](pred_hr, HR_img).item()
 
             pred_hr = quantize(pred_hr, config.data.rgb_range)
             total_psnr += get_psnr(pred_hr, HR_img, config.data.scale,
@@ -122,8 +121,8 @@ def evaluate_single_epoch(config, student_model, teacher_model, dataloader,
             tbar.set_description(desc)
             tbar.set_postfix(**postfix_dict)
             
-#             # for test
-#             _, teacher_residual_hr = teacher_model.forward(lr=LR_img,hr=HR_img)
+            # for test
+            teacher_pred_dict = teacher_model.forward(LR=LR_img,HR=HR_img)
 #             pseudo_answer = teacher_residual_hr + nn.functional.interpolate(LR_img, 
 #                                         scale_factor=2, mode='bicubic')
 #             pseudo_psnr = get_psnr(quantize(pseudo_answer, 
@@ -134,7 +133,8 @@ def evaluate_single_epoch(config, student_model, teacher_model, dataloader,
 #             total_pseudo_psnr += pseudo_psnr
 
             if writer is not None and eval_type == 'test':
-                fig = get_visualizer(HR_img, LR_img, pred_dict)
+                fig = visualizer(LR_img, HR_img, 
+                                 student_pred_dict, teacher_pred_dict)
                 writer.add_figure('{}/{:04d}'.format(eval_type, i), fig, 
                                  global_step=epoch)
 
@@ -235,7 +235,9 @@ def run(config):
         checkpoint_t, last_epoch_t))
     
     # for student
-    optimizer_s = get_optimizer(config, student_model.parameters())
+    trainable_params = filter(lambda p: p.requires_grad,
+                              student_model.parameters())
+    optimizer_s = get_optimizer(config, trainable_params)
     checkpoint_s = utils.checkpoint.get_initial_checkpoint(config,
                                                          model_type='student')
     if checkpoint_s is not None:

@@ -1,4 +1,4 @@
-base_config: 'configs/disentangle_resolution/base.yml'
+base_config: 'configs/disentangle_resolution.distill_all/base.yml'
 
 
 student_model:

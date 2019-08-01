@@ -25,14 +25,11 @@ from tensorboardX import SummaryWriter
 
 import utils.config
 import utils.checkpoint
-from utils.utils import quantize, get_SR_image_figure
+from utils.utils import quantize
 from utils.metrics import get_psnr
 
 device = None
 
-def adjust_learning_rate(config, epoch):
-    lr = config.optimizer.params.lr * (0.5 ** (epoch // config.scheduler.params.step_size))
-    return lr
 
 def train_single_epoch(config, student_model, dataloader, criterion,
                        optimizer, epoch, writer, visualizer, 
@@ -51,21 +48,16 @@ def train_single_epoch(config, student_model, dataloader, criterion,
 
         optimizer.zero_grad()
         
-        pred_dict = student_model.forward(x=LR_patch)
+        pred_dict = student_model.forward(LR=LR_patch)
         pred_hr = pred_dict['hr']
-        student_residual_hr = pred_dict['residual_hr']
         loss = criterion(pred_hr, HR_patch) 
         log_dict['loss'] = loss.item()
 
         loss.backward()
-        if 'gradient_clip' in config.optimizer:
-            lr = adjust_learning_rate(config, epoch)
-            clip = config.optimizer.gradient_clip / lr
-            torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
         optimizer.step()
-
+        
+        # logging
         f_epoch = epoch + i / total_step
-
         log_dict['lr'] = optimizer.param_groups[0]['lr']
         for key, value in log_dict.items():
             postfix_dict['train/{}'.format(key)] = value
@@ -74,7 +66,8 @@ def train_single_epoch(config, student_model, dataloader, criterion,
         desc += ', {:06d}/{:06d}, {:.2f} epoch'.format(i, total_step, f_epoch)
         tbar.set_description(desc)
         tbar.set_postfix(**postfix_dict)
-
+        
+        # tensorboard
         if i % 100 == 0:
             log_step = int(f_epoch * 10000)
             if writer is not None:
@@ -98,7 +91,7 @@ def evaluate_single_epoch(config, student_model, dataloader,
         for i, (LR_img, HR_img, filepath) in tbar:
             HR_img = HR_img[:,:1].to(device)
             LR_img = LR_img[:,:1].to(device)
-            pred_dict = student_model.forward(x=LR_img)
+            pred_dict = student_model.forward(LR=LR_img)
             pred_hr = pred_dict['hr']
             student_residual_hr = pred_dict['residual_hr']
             total_loss += criterion(pred_hr, HR_img).item()
@@ -107,23 +100,27 @@ def evaluate_single_epoch(config, student_model, dataloader,
             total_psnr += get_psnr(pred_hr, HR_img, config.data.scale,
                                   config.data.rgb_range, 
                                   benchmark=eval_type=='test')
-
+            
+            # logging
             f_epoch = epoch + i / total_step
             desc = '{:5s}'.format(eval_type)
             desc += ', {:06d}/{:06d}, {:.2f} epoch'.format(i, total_step, f_epoch)
             tbar.set_description(desc)
             tbar.set_postfix(**postfix_dict)
+            
+            # tensorboard
             if writer is not None and eval_type == 'test':
                 fig = visualizer(LR_img, HR_img, pred_dict)
                 writer.add_figure('{}/{:04d}'.format(eval_type, i), fig, 
                                  global_step=epoch)
-
+        # logging
         log_dict = {}
         avg_loss = total_loss / (i+1)
         avg_psnr = total_psnr / (i+1)
         log_dict['loss'] = avg_loss
         log_dict['psnr'] = avg_psnr
-
+        
+        # tensorboard
         for key, value in log_dict.items():
             if writer is not None:
                 writer.add_scalar('{}/{}'.format(eval_type, key), value, epoch)
@@ -152,7 +149,8 @@ def train(config, student_model, dataloaders, criterion,
         # test phase
         evaluate_single_epoch(config, student_model, 
                               dataloaders['test'],
-                              criterion, epoch, writer, postfix_dict,
+                              criterion, epoch, writer, 
+                              visualizer, postfix_dict,
                               eval_type='test')
         
         # val phase
@@ -197,8 +195,9 @@ def run(config):
 
     student_model = get_model(config, model_type).to(device)
     criterion = get_loss(config)
-    
-    optimizer = get_optimizer(config, student_model.parameters())
+    trainable_params = filter(lambda p: p.requires_grad,
+                              student_model.parameters())
+    optimizer = get_optimizer(config, trainable_params)
     checkpoint = utils.checkpoint.get_initial_checkpoint(config,
                                                          model_type=model_type)
     if checkpoint is not None:

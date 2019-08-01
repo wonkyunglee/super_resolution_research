@@ -48,22 +48,7 @@ def copy_last_n_checkpoints(config, n, name, model_type):
 def load_checkpoint(model, optimizer, checkpoint, model_type):
     print('load checkpoint from', checkpoint)
     checkpoint = torch.load(checkpoint)
-
-    checkpoint_dict = {}
-    for k, v in checkpoint['state_dict'].items():
-        if 'num_batches_tracked' in k:
-            continue
-        if k.startswith('module.'):
-            if True:
-                checkpoint_dict[k[7:]] = v
-            else:
-                checkpoint_dict['feature_extractor.' + k[7:]] = v
-        else:
-            if True:
-                checkpoint_dict[k] = v
-            else:
-                checkpoint_dict['feature_extractor.' + k] = v
-
+    checkpoint_dict = checkpoint['state_dict']
     model.load_state_dict(checkpoint_dict) #, strict=False)
 
     if optimizer is not None:

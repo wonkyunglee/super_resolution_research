@@ -19,10 +19,12 @@ def l1loss(reduction='sum', **_):
     return torch.nn.L1Loss(reduction=reduction)
 
 
-def distillation_loss(reduction='sum', distill, **_):
+def distillation_loss(distill, reduction='sum', **_):
     layers_for_distill = []
     for d in distill:
-        layers_for_distill.append(d.split(':'))
+        teacher_layer, student_layer, weight = d.split(':')
+        weight = float(weight)
+        layers_for_distill.append((teacher_layer, student_layer, weight))
     
     l1loss_fn = l1loss(reduction=reduction)
     l2loss_fn = l2loss(reduction=reduction)
@@ -38,5 +40,5 @@ def distillation_loss(reduction='sum', distill, **_):
             total_loss += weight * l2loss_fn(tl, sl)
         return total_loss
     return {'train':loss_fn,
-            'val':l1loss}
+            'val':l1loss_fn}
 

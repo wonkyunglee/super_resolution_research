@@ -26,7 +26,7 @@ from tensorboardX import SummaryWriter
 
 import utils.config
 import utils.checkpoint
-from utils.utils import quantize, get_SR_image_figure
+from utils.utils import quantize
 from utils.metrics import get_psnr
 
 device = None
@@ -52,7 +52,8 @@ def train_single_epoch(config, model, dataloader, criterion,
         LR_patch = LR_patch.to(device)
 
         optimizer.zero_grad()
-        pred_hr, residual_hr = model.forward(lr=LR_patch, hr=HR_patch)
+        pred_dict = model.forward(LR=LR_patch, HR=HR_patch)
+        pred_hr = pred_dict['hr']
         loss = criterion(pred_hr, HR_patch)
         log_dict['loss'] = loss.item()
 
@@ -98,7 +99,8 @@ def evaluate_single_epoch(config, model, dataloader, criterion,
             HR_img = HR_img[:,:1].to(device)
             LR_img = LR_img[:,:1].to(device)
 
-            pred_hr, residual_hr = model.forward(lr=LR_img, hr=HR_img)
+            pred_dict = model.forward(LR=LR_img, HR=HR_img)
+            pred_hr = pred_dict['hr']
             total_loss += criterion(pred_hr, HR_img).item()
 
             pred = quantize(pred_hr, config.data.rgb_range)
@@ -193,7 +195,9 @@ def run(config):
     model = get_model(config, model_type).to(device)
     print('The nubmer of parameters : %d'%count_parameters(model))
     criterion = get_loss(config)
-    optimizer = get_optimizer(config, model.parameters())
+    trainable_params = filter(lambda p: p.requires_grad,
+                              model.parameters())
+    optimizer = get_optimizer(config, trainable_params)
 
     checkpoint = utils.checkpoint.get_initial_checkpoint(config,
                                                          model_type=model_type)
