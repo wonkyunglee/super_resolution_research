@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
@@ -83,6 +84,9 @@ class BaseNet(nn.Module):
     def __init__(self):
         super(BaseNet, self).__init__()
         self.backbone = None
+        self.modules_to_freeze = None
+        self.initialize_from = None
+        self.modules_to_initialize = None
 
 
     def weight_init(self, mean=0.0, std=0.001):
@@ -98,27 +102,28 @@ class BaseNet(nn.Module):
                     m.bias.data.zero_()
 
 
-    def freeze_modules(self, modules_to_freeze):
+    def freeze_modules(self):
         for k, m in self.backbone.network._modules.items():
-            if k in modules_to_freeze:
+            if k in self.modules_to_freeze:
                 for param in m.parameters():
                     paramrequires_grad = False
 
 
-    def load_pretrained_model(self, initialize_from, modules_to_initialize):
+    def load_pretrained_model(self):
 
-        checkpoint = get_last_checkpoint(initialize_from)
+        checkpoint = get_last_checkpoint(self.initialize_from)
         checkpoint = torch.load(checkpoint)
         new_state_dict = self.state_dict()
         for key in checkpoint['state_dict'].keys():
             for k in key.split('.'):
-                if k in modules_to_initialize:
+                if k in self.modules_to_initialize:
                     new_state_dict[key] = checkpoint['state_dict'][key]
         self.load_state_dict(new_state_dict)
 
 
 class DisentangleTeacherNet(BaseNet):
-    def __init__(self, scale, n_colors, modules_to_freeze=None, initialize_from=None, modules_to_initialize=None):
+    def __init__(self, scale, n_colors, modules_to_freeze=None, initialize_from=None,
+                 modules_to_initialize=None):
         super(DisentangleTeacherNet, self).__init__()
 
         self.scale = scale
@@ -127,13 +132,16 @@ class DisentangleTeacherNet(BaseNet):
         m_1 = 4
         m_2 = 3
 
+        self.modules_to_freeze = modules_to_freeze
+        self.initialize_from = initialize_from
+        self.modules_to_initialize = modules_to_initialize
         self.backbone = ModifiedFSRCNN(scale, n_colors, d, s, m_1, m_2)
         self.last_layer = nn.Conv2d(d, 1, kernel_size=3, stride=1, padding=1)
         self.weight_init()
         if initialize_from is not None:
-            self.load_pretrained_model(initialize_from, modules_to_initialize)
+            self.load_pretrained_model()
         if modules_to_freeze is not None:
-            self.freeze_modules(modules_to_freeze)
+            self.freeze_modules()
 
 
     def forward(self, LR, HR):
@@ -155,7 +163,8 @@ class DisentangleTeacherNet(BaseNet):
 
 
 class DisentangleStudentNet(BaseNet):
-    def __init__(self, scale, n_colors, modules_to_freeze=None, initialize_from=None, modules_to_initialize=None):
+    def __init__(self, scale, n_colors, modules_to_freeze=None, initialize_from=None,
+                 modules_to_initialize=None):
         super(DisentangleStudentNet, self).__init__()
 
         self.scale = scale
@@ -164,12 +173,15 @@ class DisentangleStudentNet(BaseNet):
         s = 12
         m_1 = 4
         m_2 = 3
+        self.initialize_from = initialize_from
+        self.modules_to_freeze = modules_to_freeze
+        self.modules_to_initialize = modules_to_initialize
 
         self.backbone = ModifiedFSRCNN(scale, n_colors, d, s, m_1, m_2)
         self.last_layer = nn.Conv2d(d, 1, kernel_size=3, stride=1, padding=1)
         self.weight_init()
         if initialize_from is not None:
-            self.load_pretrained_model(initialize_from, modules_to_initialize)
+            self.load_pretrained_model()
         if modules_to_freeze is not None:
             self.freeze_modules(modules_to_freeze)
 
@@ -203,13 +215,17 @@ class AttendSimilarityTeacherNet(BaseNet):
         m_1 = 4
         m_2 = 3
 
+        self.initialize_from = initialize_from
+        self.modules_to_initialize = modules_to_initialize
+        self.modeuls_to_freeze = modules_to_freeze
+
         self.backbone = ModifiedFSRCNN(scale, n_colors, d, s, m_1, m_2)
         self.last_layer = nn.Conv2d(d, 1, kernel_size=3, stride=1, padding=1)
         self.weight_init()
         if initialize_from is not None:
-            self.load_pretrained_model(initialize_from, modules_to_initialize)
+            self.load_pretrained_model()
         if modules_to_freeze is not None:
-            self.freeze_modules(modules_to_freeze)
+            self.freeze_modules()
 
 
     def forward(self, LR, HR):
@@ -235,20 +251,25 @@ class AttendSimilarityStudentNet(BaseNet):
                  initialize_from=None, modules_to_initialize=None):
         super(AttendSimilarityStudentNet, self).__init__()
 
-        self.layers_to_attend = layers_to_attend
+        self.layers_to_attend = layers_to_attend if layers_to_attend is not None else []
         self.scale = scale
         upscale_factor = scale
         d = 56
         s = 12
         m_1 = 4
         m_2 = 3
+
+        self.initialize_from = initialize_from
+        self.modules_to_freeze = modules_to_freeze
+        self.modules_to_initialize = modules_to_initialize
+
         self.backbone = ModifiedFSRCNN(scale, n_colors, d, s, m_1, m_2)
         self.last_layer = nn.Conv2d(d, 1, kernel_size=3, stride=1, padding=1)
         self.weight_init()
         if initialize_from is not None:
-            self.load_pretrained_model(initialize_from, modules_to_initialize)
+            self.load_pretrained_model()
         if modules_to_freeze is not None:
-            self.freeze_modules(modules_to_freeze)
+            self.freeze_modules()
 
 
     def forward(self, LR, teacher_pred_dict=None):
@@ -261,7 +282,7 @@ class AttendSimilarityStudentNet(BaseNet):
             x = self.backbone.network._modules[layer_name](x)
             if teacher_pred_dict is not None and layer_name in self.layers_to_attend:
                 teacher_layer = teacher_pred_dict[layer_name]
-                x, attention = self.apply_attention(x, teacher_layer)
+                attention = self.get_attention_map(x, teacher_layer)
                 ret_dict[layer_name + '_attention'] = attention
             ret_dict[layer_name] = x
 
@@ -274,10 +295,9 @@ class AttendSimilarityStudentNet(BaseNet):
         return ret_dict
 
 
-    def apply_attention(self, x, y):
-        attention = F.sigmoid(F.cosine_similarity(x, y, dim=1).unsqueeze(1))
-        attended_x = x * attention
-        return attended_x, attention
+    def get_attention_map(self, x, y):
+        attention = (F.cosine_similarity(x, y, dim=1).unsqueeze(1) + 1) / 2
+        return attention
 
 
 # For Resolution Disentangling Experiments

@@ -38,7 +38,7 @@ def adjust_learning_rate(config, epoch):
 
 def train_single_epoch(config, student_model, teacher_model, dataloader, criterion,
                        optimizer, epoch, writer, visualizer, postfix_dict):
-    student_model.train() 
+    student_model.train()
     teacher_model.eval()
     batch_size = config.train.batch_size
     total_size = len(dataloader.dataset)
@@ -52,27 +52,22 @@ def train_single_epoch(config, student_model, teacher_model, dataloader, criteri
         LR_patch = LR_patch.to(device)
 
         optimizer.zero_grad()
-        
-        teacher_pred_dict = teacher_model.forward(LR=LR_patch, HR=HR_patch)
-        teacher_residual_hr = teacher_pred_dict['residual_hr']
-        student_pred_dict = student_model.forward(LR=LR_patch, teacher_pred_dict=teacher_pred_dict)
-        pred_hr = student_pred_dict['hr']
-        student_residual_hr = student_pred_dict['residual_hr']
-        loss = criterion['train'](teacher_pred_dict, student_pred_dict, HR_patch)
-        log_dict['loss'] = loss.item()
 
-        loss.backward()
-        if 'gradient_clip' in config.optimizer:
-            lr = adjust_learning_rate(config, epoch)
-            clip = config.optimizer.gradient_clip / lr
-            torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
+        teacher_pred_dict = teacher_model.forward(LR=LR_patch, HR=HR_patch)
+        student_pred_dict = student_model.forward(LR=LR_patch, teacher_pred_dict=teacher_pred_dict)
+        loss = criterion['train'](teacher_pred_dict, student_pred_dict, HR_patch)
+        for k, v in loss.items():
+            log_dict[k] = v.item()
+
+        loss['loss'].backward()
         optimizer.step()
 
         f_epoch = epoch + i / total_step
 
         log_dict['lr'] = optimizer.param_groups[0]['lr']
         for key, value in log_dict.items():
-            postfix_dict['train/{}'.format(key)] = value
+            if 'train/{}'.format(key) in postfix_dict:
+                postfix_dict['train/{}'.format(key)] = value
 
         desc = '{:5s}'.format('train')
         desc += ', {:06d}/{:06d}, {:.2f} epoch'.format(i, total_step, f_epoch)
@@ -86,8 +81,8 @@ def train_single_epoch(config, student_model, teacher_model, dataloader, criteri
                     writer.add_scalar('train/{}'.format(key), value, log_step)
 
 
-def evaluate_single_epoch(config, student_model, teacher_model, dataloader, 
-                          criterion, epoch, writer, 
+def evaluate_single_epoch(config, student_model, teacher_model, dataloader,
+                          criterion, epoch, writer,
                           visualizer, postfix_dict, eval_type):
     teacher_model.eval()
     student_model.eval()
@@ -99,20 +94,18 @@ def evaluate_single_epoch(config, student_model, teacher_model, dataloader,
         tbar = tqdm.tqdm(enumerate(dataloader), total=total_step)
 
         total_psnr = 0
-        total_pseudo_psnr = 0
         total_loss = 0
         for i, (LR_img, HR_img, filepath) in tbar:
             HR_img = HR_img[:,:1].to(device)
             LR_img = LR_img[:,:1].to(device)
-            
+
             student_pred_dict = student_model.forward(LR=LR_img)
             pred_hr = student_pred_dict['hr']
-            student_residual_hr = student_pred_dict['residual_hr']
             total_loss += criterion['val'](pred_hr, HR_img).item()
 
             pred_hr = quantize(pred_hr, config.data.rgb_range)
             total_psnr += get_psnr(pred_hr, HR_img, config.data.scale,
-                                  config.data.rgb_range, 
+                                  config.data.rgb_range,
                                   benchmark=eval_type=='test')
 
             f_epoch = epoch + i / total_step
@@ -120,22 +113,14 @@ def evaluate_single_epoch(config, student_model, teacher_model, dataloader,
             desc += ', {:06d}/{:06d}, {:.2f} epoch'.format(i, total_step, f_epoch)
             tbar.set_description(desc)
             tbar.set_postfix(**postfix_dict)
-            
+
             # for test
             teacher_pred_dict = teacher_model.forward(LR=LR_img,HR=HR_img)
-#             pseudo_answer = teacher_residual_hr + nn.functional.interpolate(LR_img, 
-#                                         scale_factor=2, mode='bicubic')
-#             pseudo_psnr = get_psnr(quantize(pseudo_answer, 
-#                                             config.data.rgb_range), HR_img, 
-#                                    config.data.scale,
-#                                    config.data.rgb_range,
-#                                    benchmark=eval_type=='test')
-#             total_pseudo_psnr += pseudo_psnr
 
             if writer is not None and eval_type == 'test':
-                fig = visualizer(LR_img, HR_img, 
+                fig = visualizer(LR_img, HR_img,
                                  student_pred_dict, teacher_pred_dict)
-                writer.add_figure('{}/{:04d}'.format(eval_type, i), fig, 
+                writer.add_figure('{}/{:04d}'.format(eval_type, i), fig,
                                  global_step=epoch)
 
 #         print(total_pseudo_psnr / (i+1))
@@ -144,7 +129,7 @@ def evaluate_single_epoch(config, student_model, teacher_model, dataloader,
         avg_psnr = total_psnr / (i+1)
         log_dict['loss'] = avg_loss
         log_dict['psnr'] = avg_psnr
-    
+
         for key, value in log_dict.items():
             if writer is not None:
                 writer.add_scalar('{}/{}'.format(eval_type, key), value, epoch)
@@ -159,36 +144,36 @@ def train(config, student_model, teacher_model, dataloaders, criterion,
     if torch.cuda.device_count() > 1:
         teacher_model = torch.nn.DataParallel(teacher_model)
         student_model = torch.nn.DataParallel(student_model)
-    
+
     postfix_dict = {'train/lr': 0.0,
                     'train/loss': 0.0,
                     'val/psnr': 0.0,
-                    'val/loss': 0.0, 
-                    'test/psnr': 0.0, 
+                    'val/loss': 0.0,
+                    'test/psnr': 0.0,
                     'test/loss': 0.0}
     psnr_list = []
     best_psnr = 0.0
     best_psnr_mavg = 0.0
     for epoch in range(start_epoch, num_epochs):
-        
+
         # test phase
-        evaluate_single_epoch(config, student_model, teacher_model, 
+        evaluate_single_epoch(config, student_model, teacher_model,
                               dataloaders['test'],
-                              criterion, epoch, writer, 
+                              criterion, epoch, writer,
                               visualizer, postfix_dict,
                               eval_type='test')
-        
+
         # val phase
         psnr = evaluate_single_epoch(config, student_model, teacher_model,
                                      dataloaders['val'],
-                                     criterion, epoch, writer, 
-                                     visualizer, postfix_dict, 
+                                     criterion, epoch, writer,
+                                     visualizer, postfix_dict,
                                      eval_type='val')
         if config.scheduler.name == 'reduce_lr_on_plateau':
             scheduler.step(psnr)
         elif config.scheduler.name != 'reduce_lr_on_plateau':
             scheduler.step()
-            
+
         utils.checkpoint.save_checkpoint(config, student_model, optimizer,
                                          epoch, 0,
                                          model_type='student')
@@ -202,7 +187,7 @@ def train(config, student_model, teacher_model, dataloaders, criterion,
             best_psnr_mavg = psnr_mavg
 
         # train phase
-        train_single_epoch(config, student_model, teacher_model, 
+        train_single_epoch(config, student_model, teacher_model,
                            dataloaders['train'],
                            criterion, optimizer, epoch, writer,
                            visualizer, postfix_dict)
@@ -216,24 +201,22 @@ def count_parameters(model):
 
 
 def run(config):
-    train_dir = config.train.dir
-
     teacher_model = get_model(config, 'teacher').to(device)
     student_model = get_model(config, 'student').to(device)
     criterion = get_loss(config)
-    
+
     # for teacher
     optimizer_t = get_optimizer(config, teacher_model.parameters())
     checkpoint_t = utils.checkpoint.get_initial_checkpoint(config,
                                                          model_type='teacher')
     if checkpoint_t is not None:
-        last_epoch_t, step_t = utils.checkpoint.load_checkpoint(teacher_model, 
+        last_epoch_t, step_t = utils.checkpoint.load_checkpoint(teacher_model,
                                  optimizer_t, checkpoint_t, model_type='teacher')
     else:
         last_epoch_t, step_t = -1, -1
     print('teacher model from checkpoint: {} last epoch:{}'.format(
         checkpoint_t, last_epoch_t))
-    
+
     # for student
     trainable_params = filter(lambda p: p.requires_grad,
                               student_model.parameters())
@@ -241,7 +224,7 @@ def run(config):
     checkpoint_s = utils.checkpoint.get_initial_checkpoint(config,
                                                          model_type='student')
     if checkpoint_s is not None:
-        last_epoch_s, step_s = utils.checkpoint.load_checkpoint(student_model, 
+        last_epoch_s, step_s = utils.checkpoint.load_checkpoint(student_model,
                                  optimizer_s, checkpoint_s, model_type='student')
     else:
         last_epoch_s, step_s = -1, -1
@@ -257,7 +240,7 @@ def run(config):
     writer = SummaryWriter(config.train['student' + '_dir'])
     visualizer = get_visualizer(config)
     train(config, student_model, teacher_model, dataloaders,
-          criterion, optimizer_s, scheduler_s, writer, 
+          criterion, optimizer_s, scheduler_s, writer,
           visualizer, last_epoch_s+1)
 
 
@@ -274,7 +257,7 @@ def main():
     import warnings
     global model_type
     model_type = 'student'
-    
+
     warnings.filterwarnings("ignore")
 
     print('train %s network'%model_type)

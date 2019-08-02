@@ -13,26 +13,20 @@ student_model:
   params:
     scale: 2
     n_colors: 1
-    layers_to_attend:
-      - 'mapping'
     # modules_to_freeze:
      #  - 'feature_extraction'
      #  - 'mapping'
-    initialize_from: 'results/attend_similarity/attend_similarity_student.distill_mapping/checkpoint/'
-    modules_to_initialize:
-       - 'feature_extraction'
-       - 'shirinking'
-       - 'mapping'
-       - 'expanding'
-       - 'mapping2'
-       - 'expanding2'
+    # initialize_from: 'results/attend_similarity/student_model'
+    # modules_to_initialize:
+    #    - 'feature_extraction'
+    #    - 'mapping'
 
 
 train:
   batch_size: 32
   num_epochs: 1000
   teacher_dir: ''
-  student_dir: ''
+  student_dir: '.distill_mapping'
   fine_tune: False
 
 
@@ -51,14 +45,17 @@ optimizer:
 
 
 loss:
-  name: 'attend_similarity_loss'
+  name: 'distillation_loss'
   params:
     reduction: 'mean'
+    distill:
+    # - 'teacher_layer_name:student_layer_name:weight'
+      - 'mapping:mapping:1'
 
 
 visualizer:
   name: 'step2'
 
 
-gpu: 0
+gpu: 1
 
