@@ -206,14 +206,11 @@ class DisentangleStudentNet(BaseNet):
 
 
 class AttendSimilarityTeacherNet(BaseNet):
-    def __init__(self, scale, n_colors, modules_to_freeze=None, initialize_from=None, modules_to_initialize=None):
+    def __init__(self, scale, n_colors,  d=56, s=12, m_1=4, m_2=3,
+                 modules_to_freeze=None, initialize_from=None, modules_to_initialize=None):
         super(AttendSimilarityTeacherNet, self).__init__()
 
         self.scale = scale
-        d = 56
-        s = 12
-        m_1 = 4
-        m_2 = 3
 
         self.initialize_from = initialize_from
         self.modules_to_initialize = modules_to_initialize
@@ -247,17 +244,13 @@ class AttendSimilarityTeacherNet(BaseNet):
 
 
 class AttendSimilarityStudentNet(BaseNet):
-    def __init__(self, scale, n_colors, layers_to_attend=None, modules_to_freeze=None,
+    def __init__(self, scale, n_colors, d=56, s=12, m_1=4, m_2=3,layers_to_attend=None, modules_to_freeze=None,
                  initialize_from=None, modules_to_initialize=None):
         super(AttendSimilarityStudentNet, self).__init__()
 
         self.layers_to_attend = layers_to_attend if layers_to_attend is not None else []
         self.scale = scale
         upscale_factor = scale
-        d = 56
-        s = 12
-        m_1 = 4
-        m_2 = 3
 
         self.initialize_from = initialize_from
         self.modules_to_freeze = modules_to_freeze
@@ -296,7 +289,8 @@ class AttendSimilarityStudentNet(BaseNet):
 
 
     def get_attention_map(self, x, y):
-        attention = (F.cosine_similarity(x, y, dim=1).unsqueeze(1) + 1) / 2
+        attention = F.cosine_similarity(x, y, dim=1).unsqueeze(1)
+        attention = (attention + 1) / 2
         return attention
 
 

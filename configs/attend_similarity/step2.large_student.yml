@@ -13,16 +13,15 @@ student_model:
   params:
     scale: 2
     n_colors: 1
+    m_1 : 12
     layers_to_attend:
       - 'mapping'
     # modules_to_freeze:
-     #  - 'feature_extraction'
-     #  - 'mapping'
+    #   - 'expanding'
+    #   - 'mapping2'
+    #   - 'expanding2'
     initialize_from: 'results/attend_similarity/attend_similarity_student.distill_mapping/checkpoint/'
     modules_to_initialize:
-       - 'feature_extraction'
-       - 'shirinking'
-       - 'mapping'
        - 'expanding'
        - 'mapping2'
        - 'expanding2'
@@ -32,7 +31,7 @@ train:
   batch_size: 32
   num_epochs: 1000
   teacher_dir: ''
-  student_dir: ''
+  student_dir: '.large_student'
   fine_tune: False
 
 
@@ -47,7 +46,7 @@ scheduler:
 optimizer:
   name: adam
   params:
-    lr: 0.0001
+    lr: 0.001
 
 
 loss:
@@ -63,5 +62,5 @@ visualizer:
   name: 'step2'
 
 
-gpu: 0
+gpu: 1
 
