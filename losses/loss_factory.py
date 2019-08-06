@@ -9,6 +9,12 @@ import os
 
 device = None
 
+def standardize(tensor, dim=(2,3)):
+    mean = tensor.mean(dim=dim, keepdim=True)
+    std = tensor.std(dim=dim, keepdim=True)
+    standardized = (tensor - mean) / (std + 1e-8)
+    return standardized
+
 def get_loss(config):
     f = globals().get(config.loss.name)
     global device
@@ -29,7 +35,7 @@ def l1loss(reduction='sum', **_):
     return torch.nn.L1Loss(reduction=reduction)
 
 
-def distillation_loss(distill, reduction='sum', **_):
+def distillation_loss(distill, reduction='sum', standardization=False, **_):
     layers_for_distill = []
     for d in distill:
         teacher_layer, student_layer, weight = d.split(':')
@@ -39,15 +45,25 @@ def distillation_loss(distill, reduction='sum', **_):
     l1loss_fn = l1loss(reduction=reduction)
     l2loss_fn = l2loss(reduction=reduction)
     def loss_fn(teacher_pred_dict, student_pred_dict, HR):
-        total_loss = 0
+        loss_dict = dict()
         student_pred_hr = student_pred_dict['hr']
-        total_loss += l1loss_fn(student_pred_hr, HR)
+        gt_loss = l1loss_fn(student_pred_hr, HR)
+        distill_loss = 0
 
         for teacher_layer, student_layer, weight in layers_for_distill:
             tl = teacher_pred_dict[teacher_layer]
             sl = student_pred_dict[student_layer]
-            total_loss += weight * l2loss_fn(tl, sl)
-        return total_loss
+
+            if standardization:
+                tl = standardize(tl, dim=(2,3))
+                sl = standardize(sl, dim=(2,3))
+            distill_loss += weight * l2loss_fn(tl, sl)
+
+        loss_dict['loss'] = gt_loss + distill_loss
+        loss_dict['gt_loss'] = gt_loss
+        loss_dict['distill_loss'] = distill_loss
+        return loss_dict
+
     return {'train':loss_fn,
             'val':l1loss_fn}
 

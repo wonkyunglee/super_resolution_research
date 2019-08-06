@@ -13,20 +13,25 @@ student_model:
   params:
     scale: 2
     n_colors: 1
-    # modules_to_freeze:
-     #  - 'feature_extraction'
-     #  - 'mapping'
-    # initialize_from: 'results/attend_similarity/student_model'
-    # modules_to_initialize:
-    #    - 'feature_extraction'
-    #    - 'mapping'
+    modules_to_freeze:
+      - 'expanding'
+      - 'mapping2'
+      - 'expanding2'
+    initialize_from: 'results/attend_similarity/attend_similarity_teacher/checkpoint/'
+    modules_to_initialize:
+       - 'feature_extraction'
+       - 'shirinking'
+       - 'mapping'
+       - 'expanding'
+       - 'mapping2'
+       - 'expanding2'
 
 
 train:
   batch_size: 32
   num_epochs: 1000
   teacher_dir: ''
-  student_dir: '.distill_mapping'
+  student_dir: '.distill_mapping.standardize'
   fine_tune: False
 
 
@@ -48,6 +53,7 @@ loss:
   name: 'distillation_loss'
   params:
     reduction: 'mean'
+    standardization: True
     distill:
     # - 'teacher_layer_name:student_layer_name:weight'
       - 'mapping:mapping:1'
