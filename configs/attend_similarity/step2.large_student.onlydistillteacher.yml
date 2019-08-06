@@ -14,24 +14,24 @@ student_model:
     scale: 2
     n_colors: 1
     m_1 : 12
-    layers_to_attend:
-      - 'mapping'
-    # modules_to_freeze:
-    #   - 'expanding'
-    #   - 'mapping2'
-    #   - 'expanding2'
-    # initialize_from: 'results/attend_similarity/attend_similarity_student.distill_mapping/checkpoint/'
-    # modules_to_initialize:
-    #   - 'expanding'
-    #   - 'mapping2'
-    #   - 'expanding2'
+    # layers_to_attend:
+    #   - 'mapping'
+    modules_to_freeze:
+      - 'expanding'
+      - 'mapping2'
+      - 'expanding2'
+    initialize_from: 'results/attend_similarity/attend_similarity_teacher/checkpoint/'
+    modules_to_initialize:
+      - 'expanding'
+      - 'mapping2'
+      - 'expanding2'
 
 
 train:
   batch_size: 32
   num_epochs: 1000
   teacher_dir: ''
-  student_dir: '.large_student'
+  student_dir: '.large_student.onlydistillteacher'
   fine_tune: False
 
 
@@ -50,12 +50,11 @@ optimizer:
 
 
 loss:
-  name: 'attend_similarity_loss'
+  name: 'distillation_loss'
   params:
     reduction: 'mean'
-    lambda1: 1
-    lambda2: 100
-    lambda3: 10
+    distill:
+      - 'mapping:mapping:1'
 
 
 visualizer:

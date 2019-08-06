@@ -107,6 +107,7 @@ class BaseNet(nn.Module):
             if k in self.modules_to_freeze:
                 for param in m.parameters():
                     paramrequires_grad = False
+                print('freezing layer: %s'%k)
 
 
     def load_pretrained_model(self):
@@ -118,6 +119,7 @@ class BaseNet(nn.Module):
             for k in key.split('.'):
                 if k in self.modules_to_initialize:
                     new_state_dict[key] = checkpoint['state_dict'][key]
+                    print('pretrain parameters: %s'%k)
         self.load_state_dict(new_state_dict)
 
 
@@ -290,7 +292,7 @@ class AttendSimilarityStudentNet(BaseNet):
 
     def get_attention_map(self, x, y):
         attention = F.cosine_similarity(x, y, dim=1).unsqueeze(1)
-        attention = (attention + 1) / 2
+        attention = (attention + 1.0) / 2.01
         return attention
 
 

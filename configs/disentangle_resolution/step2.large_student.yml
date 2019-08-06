@@ -1,25 +1,23 @@
-base_config: 'configs/attend_similarity/base.yml'
+base_config: 'configs/disentangle_resolution/base.yml'
 
 
 teacher_model:
-  name: 'attend_similarity_teacher'
+  name: 'disentangle_teacher'
   params:
     scale: 2
     n_colors: 1
 
 
 student_model:
-  name: 'attend_similarity_student'
+  name: 'disentangle_student'
   params:
     scale: 2
     n_colors: 1
     m_1 : 12
-    layers_to_attend:
-      - 'mapping'
-    # modules_to_freeze:
-    #   - 'expanding'
-    #   - 'mapping2'
-    #   - 'expanding2'
+    modules_to_freeze:
+      - 'expanding'
+      - 'mapping2'
+      - 'expanding2'
     # initialize_from: 'results/attend_similarity/attend_similarity_student.distill_mapping/checkpoint/'
     # modules_to_initialize:
     #   - 'expanding'
