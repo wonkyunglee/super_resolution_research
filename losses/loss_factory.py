@@ -35,7 +35,8 @@ def l1loss(reduction='sum', **_):
     return torch.nn.L1Loss(reduction=reduction)
 
 
-def distillation_loss(distill, reduction='sum', standardization=False, **_):
+def distillation_loss(distill, reduction='sum', standardization=False,
+                      lambda1=1, lambda2=1, **_):
     layers_for_distill = []
     for d in distill:
         teacher_layer, student_layer, weight = d.split(':')
@@ -59,16 +60,16 @@ def distillation_loss(distill, reduction='sum', standardization=False, **_):
                 sl = standardize(sl, dim=(2,3))
             distill_loss += weight * l2loss_fn(tl, sl)
 
-        loss_dict['loss'] = gt_loss + distill_loss
-        loss_dict['gt_loss'] = gt_loss
-        loss_dict['distill_loss'] = distill_loss
+        loss_dict['loss'] = lambda1 * gt_loss + lambda2 * distill_loss
+        loss_dict['gt_loss'] = lambda1 * gt_loss
+        loss_dict['distill_loss'] = lambda2 * distill_loss
         return loss_dict
 
     return {'train':loss_fn,
             'val':l1loss_fn}
 
 
-def attend_similarity_loss(reduction='sum', lambda1=1, lambda2=1, lambda3=1, **_):
+def attend_similarity_loss(reduction='sum', standardization=False, lambda1=1, lambda2=1, lambda3=1, **_):
     l1loss_fn = l1loss(reduction=reduction)
     l2loss_fn = l2loss(reduction=reduction)
     cross_entropy_loss_fn = torch.nn.BCELoss()
@@ -87,8 +88,11 @@ def attend_similarity_loss(reduction='sum', lambda1=1, lambda2=1, lambda3=1, **_
                 cross_entropy_loss += cross_entropy_loss_fn(value, ones)
 
                 layer_name = layer.split('_attention')[0]
-                sl = student_pred_dict[layer_name]
                 tl = teacher_pred_dict[layer_name]
+                sl = student_pred_dict[layer_name]
+                if standardization:
+                    tl = standardize(tl, dim=(2,3))
+                    sl = standardize(sl, dim=(2,3))
                 attended_distill_loss += l2loss_fn(tl * value, sl)
 
         total_loss = lambda1 * gt_loss + lambda2 * attended_distill_loss # + lambda3 * cross_entropy_loss

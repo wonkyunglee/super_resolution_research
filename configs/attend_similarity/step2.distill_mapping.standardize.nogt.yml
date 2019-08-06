@@ -31,7 +31,7 @@ train:
   batch_size: 32
   num_epochs: 1000
   teacher_dir: ''
-  student_dir: '.distill_mapping.standardize'
+  student_dir: '.distill_mapping.standardize.nogt'
   fine_tune: False
 
 
@@ -54,6 +54,8 @@ loss:
   params:
     reduction: 'mean'
     standardization: True
+    lambda1: 0.0
+    lambda2: 1.0
     distill:
     # - 'teacher_layer_name:student_layer_name:weight'
       - 'mapping:mapping:1'
