@@ -16,11 +16,14 @@ student_model:
     # modules_to_freeze:
      #  - feature_extraction
      #  - mapping
-    # initialize_from: 'results/disentangle_resolution.distill_all/student_model'
-    # modules_to_initialize:
-    #    - feature_extraction
-    #    - mapping
-            
+    initialize_from: 'results/disentangle_resolution.distill_all/disentangle_student.base/checkpoint/'
+    modules_to_initialize:
+      - feature_extraction
+      - shirinking
+      - mapping
+      - expanding
+      - mapping2
+      - expanding2
 
 train:
   batch_size: 32
@@ -41,7 +44,7 @@ scheduler:
 optimizer:
   name: adam
   params:
-    lr: 0.0001
+    lr: 0.001
  
 
 loss:
