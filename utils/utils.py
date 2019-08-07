@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 def prepare_train_directories(config, model_type):
     out_dir = config.train[model_type + '_dir']
     os.makedirs(os.path.join(out_dir, 'checkpoint'), exist_ok=True)
-    
+
 
 def quantize(img, rgb_range):
     pixel_range = 255 / rgb_range

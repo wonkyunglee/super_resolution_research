@@ -62,7 +62,8 @@ class ModifiedFSRCNN(nn.Module):
             nn.Conv2d(in_channels=s, out_channels=d,
                        kernel_size=1, stride=1,
                        padding=0),
-            nn.PReLU()))
+            nn.PReLU(),
+            nn.Conv2d(d, 1, kernel_size=3, stride=1, padding=1)))
 
         self.network = nn.Sequential(
             OrderedDict([
@@ -138,7 +139,6 @@ class DisentangleTeacherNet(BaseNet):
         self.initialize_from = initialize_from
         self.modules_to_initialize = modules_to_initialize
         self.backbone = ModifiedFSRCNN(scale, n_colors, d, s, m_1, m_2)
-        self.last_layer = nn.Conv2d(d, 1, kernel_size=3, stride=1, padding=1)
         self.weight_init()
         if initialize_from is not None:
             self.load_pretrained_model()
@@ -155,7 +155,7 @@ class DisentangleTeacherNet(BaseNet):
             x = self.backbone.network._modules[layer_name](x)
             ret_dict[layer_name] = x
 
-        residual_hr = self.last_layer(x)
+        residual_hr = x
         LR = nn.functional.interpolate(LR, scale_factor=self.scale,
                                         mode='bicubic')
         hr = LR + residual_hr
@@ -180,7 +180,6 @@ class DisentangleStudentNet(BaseNet):
         self.modules_to_initialize = modules_to_initialize
 
         self.backbone = ModifiedFSRCNN(scale, n_colors, d, s, m_1, m_2)
-        self.last_layer = nn.Conv2d(d, 1, kernel_size=3, stride=1, padding=1)
         self.weight_init()
         if initialize_from is not None:
             self.load_pretrained_model()
@@ -198,7 +197,7 @@ class DisentangleStudentNet(BaseNet):
             x = self.backbone.network._modules[layer_name](x)
             ret_dict[layer_name] = x
 
-        residual_hr = self.last_layer(x)
+        residual_hr = x
 
         hr = upscaled_lr + residual_hr
         ret_dict['hr'] = hr
@@ -219,7 +218,6 @@ class AttendSimilarityTeacherNet(BaseNet):
         self.modeuls_to_freeze = modules_to_freeze
 
         self.backbone = ModifiedFSRCNN(scale, n_colors, d, s, m_1, m_2)
-        self.last_layer = nn.Conv2d(d, 1, kernel_size=3, stride=1, padding=1)
         self.weight_init()
         if initialize_from is not None:
             self.load_pretrained_model()
@@ -236,7 +234,7 @@ class AttendSimilarityTeacherNet(BaseNet):
             x = self.backbone.network._modules[layer_name](x)
             ret_dict[layer_name] = x
 
-        residual_hr = self.last_layer(x)
+        residual_hr = x
         LR = nn.functional.interpolate(LR, scale_factor=self.scale,
                                         mode='bicubic')
         hr = LR + residual_hr
@@ -259,7 +257,6 @@ class AttendSimilarityStudentNet(BaseNet):
         self.modules_to_initialize = modules_to_initialize
 
         self.backbone = ModifiedFSRCNN(scale, n_colors, d, s, m_1, m_2)
-        self.last_layer = nn.Conv2d(d, 1, kernel_size=3, stride=1, padding=1)
         self.weight_init()
         if initialize_from is not None:
             self.load_pretrained_model()
@@ -281,7 +278,7 @@ class AttendSimilarityStudentNet(BaseNet):
                 ret_dict[layer_name + '_attention'] = attention
             ret_dict[layer_name] = x
 
-        residual_hr = self.last_layer(x)
+        residual_hr = x
 
         hr = upscaled_lr + residual_hr
         ret_dict['hr'] = hr
