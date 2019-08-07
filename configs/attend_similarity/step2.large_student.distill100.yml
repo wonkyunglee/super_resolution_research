@@ -31,7 +31,7 @@ train:
   batch_size: 32
   num_epochs: 1000
   teacher_dir: ''
-  student_dir: '.large_student'
+  student_dir: '.large_student.distill100'
   fine_tune: False
 
 
@@ -54,7 +54,7 @@ loss:
   params:
     reduction: 'mean'
     lambda1: 1
-    lambda2: 1
+    lambda2: 100
     distill:
       - 'mapping:mapping:1'
 
