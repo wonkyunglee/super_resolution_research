@@ -31,8 +31,7 @@ train:
   batch_size: 32
   num_epochs: 1000
   teacher_dir: ''
-  student_dir: '.distill_mapping.standardize.nogt'
-  fine_tune: False
+  student_dir: '.distill_mapping.nogt'
 
 
 eval:
@@ -53,7 +52,7 @@ loss:
   name: 'distillation_loss'
   params:
     reduction: 'mean'
-    standardization: True
+    standardization: False
     lambda1: 0.0
     lambda2: 1.0
     distill:
@@ -65,5 +64,5 @@ visualizer:
   name: 'step2'
 
 
-gpu: 2
+gpu: 0
 

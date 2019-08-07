@@ -5,7 +5,10 @@ from __future__ import print_function
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
+import sys
 
+sys.path.append('../')
+from utils.utils import quantize
 
 def float2uint8(image):
     if type(image) == torch.Tensor:
@@ -44,22 +47,22 @@ def get_figure_basic(LR, HR, pred):
 
     return fig
 
-def step0_visualizer():
+def step0_visualizer(rgb_range):
     return get_figure_basic
 
 
-def step1_visualizer():
+def step1_visualizer(rgb_range):
     return get_figure_basic
 
 
-def step2_visualizer():
+def step2_visualizer(rgb_range):
     def get_figure(LR, HR, pred_student, pred_teacher):
-        LR = LR[0]
-        HR = HR[0]
-        pred_teacher_residual_hr = pred_teacher['residual_hr'][0]
-        pred_student_residual_hr = pred_student['residual_hr'][0]
-        pred_student_hr = pred_student['hr'][0]
-        pred_teacher_hr = pred_teacher['hr'][0]
+        LR = quantize(LR[0], rgb_range)
+        HR = quantize(HR[0], rgb_range)
+        pred_teacher_residual_hr = quantize(pred_teacher['residual_hr'][0], rgb_range)
+        pred_student_residual_hr = quantize(pred_student['residual_hr'][0], rgb_range)
+        pred_student_hr = quantize(pred_student['hr'][0], rgb_range)
+        pred_teacher_hr = quantize(pred_teacher['hr'][0], rgb_range)
         residual_diff = pred_teacher_residual_hr - pred_student_residual_hr
 
         fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, figsize=(16,4))
@@ -78,16 +81,16 @@ def step2_visualizer():
     return get_figure
 
 
-def step2_attention_visualizer():
+def step2_attention_visualizer(rgb_range):
     def get_figure(LR, HR, pred_student, pred_teacher):
-        LR = LR[0]
-        HR = HR[0]
-        pred_teacher_residual_hr = pred_teacher['residual_hr'][0]
-        pred_student_residual_hr = pred_student['residual_hr'][0]
-        pred_student_hr = pred_student['hr'][0]
-        pred_teacher_hr = pred_teacher['hr'][0]
+        LR = quantize(LR[0], rgb_range)
+        HR = quantize(HR[0], rgb_range)
+        pred_teacher_residual_hr = quantize(pred_teacher['residual_hr'][0], rgb_range)
+        pred_student_residual_hr = quantize(pred_student['residual_hr'][0], rgb_range)
+        pred_student_hr = quantize(pred_student['hr'][0], rgb_range)
+        pred_teacher_hr = quantize(pred_teacher['hr'][0], rgb_range)
         residual_diff = pred_teacher_residual_hr - pred_student_residual_hr
-        attention = pred_student['mapping_attention'][0]
+        attention = quantize(pred_student['mapping_attention'][0], rgb_range)
 
         fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(1, 5, figsize=(15,3))
         cmap = 'gray'
@@ -110,5 +113,5 @@ def step2_attention_visualizer():
 
 def get_visualizer(config):
     func = globals().get(config.visualizer.name + '_visualizer')
-    return func()
+    return func(config.data.rgb_range)
 
