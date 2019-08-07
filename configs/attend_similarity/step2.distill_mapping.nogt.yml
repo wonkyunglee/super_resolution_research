@@ -54,7 +54,7 @@ loss:
     reduction: 'mean'
     standardization: False
     lambda1: 0.0
-    lambda2: 1.0
+    lambda2: 100.0
     distill:
     # - 'teacher_layer_name:student_layer_name:weight'
       - 'mapping:mapping:1'
