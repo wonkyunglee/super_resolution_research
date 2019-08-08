@@ -13,8 +13,6 @@ student_model:
   params:
     scale: 2
     n_colors: 1
-    layers_to_attend:
-      - 'mapping'
     modules_to_freeze:
       - 'expanding'
       - 'mapping2'
@@ -58,6 +56,9 @@ loss:
     lambda1: 1
     lambda2: 10
     lambda3: 1.0
+    attend:
+      - 'mapping:mapping:1'
+
 
 
 visualizer:

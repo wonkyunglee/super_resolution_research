@@ -14,9 +14,10 @@ student_model:
     scale: 2
     n_colors: 1
     # modules_to_freeze:
-     #  - 'feature_extraction'
-     #  - 'mapping'
-    initialize_from: 'results/attend_similarity/attend_similarity_student.distill_mapping.standardize/checkpoint/'
+    #   - 'expanding'
+    #   - 'mapping2'
+    #   - 'expanding2'
+    initialize_from: 'results/attend_similarity/attend_similarity_teacher/checkpoint/'
     modules_to_initialize:
        - 'feature_extraction'
        - 'shirinking'
@@ -30,8 +31,7 @@ train:
   batch_size: 32
   num_epochs: 1000
   teacher_dir: ''
-  student_dir: 'use_pretrain.standardize'
-  fine_tune: False
+  student_dir: '.from_teacher.notfreeze_decoder'
 
 
 eval:
@@ -54,8 +54,8 @@ loss:
     reduction: 'mean'
     standardize: True
     lambda1: 1
-    lambda2: 100
-    lambda3: 0.0
+    lambda2: 1
+    lambda3: 0
     attend:
       - 'mapping:mapping:1'
 
@@ -64,5 +64,5 @@ visualizer:
   name: 'step2'
 
 
-gpu: 2
+gpu: 1
 
