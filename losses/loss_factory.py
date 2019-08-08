@@ -4,6 +4,7 @@ from __future__ import print_function
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 import os
 
@@ -36,7 +37,8 @@ def l1loss(reduction='sum', **_):
 
 
 def distillation_loss(distill, reduction='sum', standardization=False,
-                      lambda1=1, lambda2=1, **_):
+                      lambda1=1, lambda2=1, gt_loss_type='l1',
+                      distill_loss_type='l1', **_):
     layers_for_distill = []
     for d in distill:
         teacher_layer, student_layer, weight = d.split(':')
@@ -45,12 +47,23 @@ def distillation_loss(distill, reduction='sum', standardization=False,
 
     l1loss_fn = l1loss(reduction=reduction)
     l2loss_fn = l2loss(reduction=reduction)
+
+    if gt_loss_type == 'l1':
+        gt_loss_fn = l1loss_fn
+    elif gt_loss_type == 'l2':
+        gt_loss_fn = l2loss_fn
+
+    if distill_loss_type == 'l1':
+        distill_loss_fn = l1loss_fn
+    elif distill_loss_type == 'l2':
+        distill_loss_fn = l2loss_fn
+
     def loss_fn(teacher_pred_dict, student_pred_dict, HR):
         gt_loss = 0
         distill_loss = 0
         loss_dict = dict()
         student_pred_hr = student_pred_dict['hr']
-        gt_loss = l1loss_fn(student_pred_hr, HR)
+        gt_loss = gt_loss_fn(student_pred_hr, HR)
 
         for teacher_layer, student_layer, weight in layers_for_distill:
             tl = teacher_pred_dict[teacher_layer]
@@ -58,7 +71,7 @@ def distillation_loss(distill, reduction='sum', standardization=False,
             if standardization:
                 tl = standardize(tl, dim=(2,3))
                 sl = standardize(sl, dim=(2,3))
-            distill_loss += weight * l2loss_fn(tl, sl)
+            distill_loss += weight * distill_loss_fn(tl, sl)
 
         loss_dict['loss'] = lambda1 * gt_loss + lambda2 * distill_loss
         loss_dict['gt_loss'] = lambda1 * gt_loss
@@ -69,10 +82,29 @@ def distillation_loss(distill, reduction='sum', standardization=False,
             'val':l1loss_fn}
 
 
-def attend_similarity_loss(reduction='sum', standardization=False, lambda1=1, lambda2=1, lambda3=1, **_):
+def attend_similarity_loss(attend, reduction='sum', standardization=False,
+                           lambda1=1, lambda2=1, lambda3=1, **_):
+
+    layers_for_attend = []
+    for d in attend:
+        teacher_layer, student_layer, weight = d.split(':')
+        weight = float(weight)
+        layers_for_attend.append((teacher_layer, student_layer, weight))
+
     l1loss_fn = l1loss(reduction=reduction)
     l2loss_fn = l2loss(reduction=reduction)
     cross_entropy_loss_fn = torch.nn.BCELoss()
+
+    def distill_loss_fn(tl, sl, attention_map):
+        return torch.mean(torch.abs(tl - sl) * attention_map)
+
+
+    def get_attention_map(x, y):
+        attention = F.cosine_similarity(x, y, dim=1).unsqueeze(1)
+        attention = (attention + 1.0) / 2.01
+        return attention
+
+
     def loss_fn(teacher_pred_dict, student_pred_dict, HR):
         total_loss = 0
         gt_loss = 0
@@ -81,19 +113,17 @@ def attend_similarity_loss(reduction='sum', standardization=False, lambda1=1, la
         student_pred_hr = student_pred_dict['hr']
         gt_loss = l1loss_fn(student_pred_hr, HR)
 
-        for layer, value in student_pred_dict.items():
-            if 'attention' in layer:
-                values = value.view(-1,1)
-                ones = torch.ones([*value.shape], dtype=torch.float32).to(device)
-                cross_entropy_loss += cross_entropy_loss_fn(value, ones)
+        for teacher_layer, student_layer, weight in layers_for_attend:
+            tl = teacher_pred_dict[teacher_layer]
+            sl = student_pred_dict[student_layer]
+            if standardization:
+                tl = standardize(tl, dim=(2,3))
+                sl = standardize(sl, dim=(2,3))
+            attention_map = get_attention_map(tl, sl).detach()
+            attended_distill_loss += weight * distill_loss_fn(tl, sl, attention_map)
 
-                layer_name = layer.split('_attention')[0]
-                tl = teacher_pred_dict[layer_name]
-                sl = student_pred_dict[layer_name]
-                if standardization:
-                    tl = standardize(tl, dim=(2,3))
-                    sl = standardize(sl, dim=(2,3))
-                attended_distill_loss += l2loss_fn(tl * value, sl)
+            ones = torch.ones([*attention_map.shape], dtype=torch.float32).to(device)
+            cross_entropy_loss += cross_entropy_loss_fn(attention_map, ones)
 
         total_loss = lambda1 * gt_loss + lambda2 * attended_distill_loss + lambda3 * cross_entropy_loss
         loss_dict = dict()

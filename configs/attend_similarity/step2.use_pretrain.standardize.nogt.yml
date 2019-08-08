@@ -13,8 +13,6 @@ student_model:
   params:
     scale: 2
     n_colors: 1
-    layers_to_attend:
-      - 'mapping'
     # modules_to_freeze:
      #  - 'feature_extraction'
      #  - 'mapping'
@@ -33,7 +31,6 @@ train:
   num_epochs: 1000
   teacher_dir: ''
   student_dir: 'use_pretrain.standardize.nogt'
-  fine_tune: False
 
 
 eval:
@@ -56,8 +53,11 @@ loss:
     reduction: 'mean'
     standardize: True
     lambda1: 1
-    lambda2: 100
+    lambda2: 1
     lambda3: 0.0
+    attend:
+      - 'mapping:mapping:1'
+
 
 
 visualizer:

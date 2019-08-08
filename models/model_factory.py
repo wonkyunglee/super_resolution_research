@@ -272,25 +272,14 @@ class AttendSimilarityStudentNet(BaseNet):
         layer_names = self.backbone.network._modules.keys()
         for layer_name in layer_names:
             x = self.backbone.network._modules[layer_name](x)
-            if teacher_pred_dict is not None and layer_name in self.layers_to_attend:
-                teacher_layer = teacher_pred_dict[layer_name]
-                attention = self.get_attention_map(x, teacher_layer)
-                ret_dict[layer_name + '_attention'] = attention
             ret_dict[layer_name] = x
 
         residual_hr = x
-
         hr = upscaled_lr + residual_hr
         ret_dict['hr'] = hr
         ret_dict['residual_hr'] = residual_hr
 
         return ret_dict
-
-
-    def get_attention_map(self, x, y):
-        attention = F.cosine_similarity(x, y, dim=1).unsqueeze(1)
-        attention = (attention + 1.0) / 2.01
-        return attention
 
 
 # For Resolution Disentangling Experiments
