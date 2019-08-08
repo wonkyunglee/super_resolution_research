@@ -13,8 +13,6 @@ student_model:
   params:
     scale: 2
     n_colors: 1
-    layers_to_attend:
-      - 'mapping'
     # modules_to_freeze:
      #  - 'feature_extraction'
      #  - 'mapping'
@@ -57,6 +55,8 @@ loss:
     lambda1: 1
     lambda2: 100
     lambda3: 0.1
+    attend:
+      - 'mapping:mapping:1'
 
 
 visualizer:
