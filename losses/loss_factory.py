@@ -95,7 +95,7 @@ def attend_similarity_loss(reduction='sum', standardization=False, lambda1=1, la
                     sl = standardize(sl, dim=(2,3))
                 attended_distill_loss += l2loss_fn(tl * value, sl)
 
-        total_loss = lambda1 * gt_loss + lambda2 * attended_distill_loss # + lambda3 * cross_entropy_loss
+        total_loss = lambda1 * gt_loss + lambda2 * attended_distill_loss + lambda3 * cross_entropy_loss
         loss_dict = dict()
         loss_dict['loss'] = total_loss
         loss_dict['gt_loss'] = lambda1 * gt_loss
