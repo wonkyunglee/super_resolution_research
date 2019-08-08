@@ -13,6 +13,8 @@ student_model:
   params:
     scale: 2
     n_colors: 1
+    layers_to_attend:
+      - 'mapping'
     modules_to_freeze:
       - 'expanding'
       - 'mapping2'
@@ -31,7 +33,7 @@ train:
   batch_size: 32
   num_epochs: 1000
   teacher_dir: ''
-  student_dir: '.distill_mapping'
+  student_dir: '.from_teacher'
 
 
 eval:
@@ -49,20 +51,18 @@ optimizer:
 
 
 loss:
-  name: 'distillation_loss'
+  name: 'attend_similarity_loss'
   params:
     reduction: 'mean'
-    standardization: False
-    lambda1: 1.0
-    lambda2: 100.0
-    distill:
-    # - 'teacher_layer_name:student_layer_name:weight'
-      - 'mapping:mapping:1'
+    standardize: True
+    lambda1: 1
+    lambda2: 100
+    lambda3: 0.0
 
 
 visualizer:
   name: 'step2'
 
 
-gpu: 2
+gpu: 3
 
