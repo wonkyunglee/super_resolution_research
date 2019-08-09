@@ -31,7 +31,7 @@ train:
   batch_size: 32
   num_epochs: 1000
   teacher_dir: ''
-  student_dir: '.from_teacher'
+  student_dir: '.from_teacher.lambda2_1.reverse'
 
 
 eval:
@@ -52,17 +52,17 @@ loss:
   name: 'attend_similarity_loss'
   params:
     reduction: 'mean'
-    standardize: False
+    standardize: True
     lambda1: 1
     lambda2: 100
-    lambda3: 0.0
+    lambda3: 0
+    reverse: True
     attend:
       - 'mapping:mapping:1'
-
 
 visualizer:
   name: 'step2'
 
 
-gpu: 1
+gpu: 2
 
