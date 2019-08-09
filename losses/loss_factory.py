@@ -83,7 +83,7 @@ def distillation_loss(distill, reduction='sum', standardization=False,
 
 
 def attend_similarity_loss(attend, reduction='sum', standardization=False,
-                           lambda1=1, lambda2=1, lambda3=1, **_):
+                           lambda1=1, lambda2=1, lambda3=1, reverse=False, **_):
 
     layers_for_attend = []
     for d in attend:
@@ -95,8 +95,12 @@ def attend_similarity_loss(attend, reduction='sum', standardization=False,
     l2loss_fn = l2loss(reduction=reduction)
     cross_entropy_loss_fn = torch.nn.BCELoss()
 
-    def distill_loss_fn(tl, sl, attention_map):
-        return torch.mean(torch.abs(tl - sl) * attention_map)
+    def distill_loss_fn(tl, sl, attention_map, reverse=False):
+        if reverse:
+            distill_loss = torch.mean(torch.abs(tl - sl) * (1-attention_map))
+        else:
+            distill_loss = torch.mean(torch.abs(tl - sl) * attention_map)
+        return distill_loss
 
 
     def get_attention_map(x, y):
@@ -120,7 +124,7 @@ def attend_similarity_loss(attend, reduction='sum', standardization=False,
                 tl = standardize(tl, dim=(2,3))
                 sl = standardize(sl, dim=(2,3))
             attention_map = get_attention_map(tl, sl).detach()
-            attended_distill_loss += weight * distill_loss_fn(tl, sl, attention_map)
+            attended_distill_loss += weight * distill_loss_fn(tl, sl, attention_map, reverse)
 
             ones = torch.ones([*attention_map.shape], dtype=torch.float32).to(device)
             cross_entropy_loss += cross_entropy_loss_fn(attention_map, ones)
