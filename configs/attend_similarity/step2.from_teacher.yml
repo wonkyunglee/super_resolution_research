@@ -52,7 +52,7 @@ loss:
   name: 'attend_similarity_loss'
   params:
     reduction: 'mean'
-    standardize: True
+    standardize: False
     lambda1: 1
     lambda2: 100
     lambda3: 0.0
@@ -64,5 +64,5 @@ visualizer:
   name: 'step2'
 
 
-gpu: 3
+gpu: 1
 
