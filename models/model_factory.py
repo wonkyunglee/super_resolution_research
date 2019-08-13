@@ -8,20 +8,23 @@ from utils.checkpoint import get_last_checkpoint
 
 
 class ModifiedFSRCNN(nn.Module):
-    def __init__(self, scale, n_colors, d=56, s=12, m_1=4, m_2=3):
+    def __init__(self, scale, n_colors, d=56, s=12, m_1=4, m_2=3, dilation=1):
         super(ModifiedFSRCNN, self).__init__()
 
 
         self.scale = scale
         upscale_factor = scale
+        d_padding = dilation -1
 
         self.feature_extraction = []
         self.feature_extraction.append(nn.Sequential(
             nn.Conv2d(in_channels=n_colors,
-                      out_channels=d, kernel_size=3, stride=1, padding=1),
+                      out_channels=d, kernel_size=3, stride=1, padding=1+d_padding,
+                      dilation=dilation),
             nn.PReLU(),
             nn.Conv2d(in_channels=d, out_channels=d,
-                      kernel_size=3, stride=1, padding=1),
+                      kernel_size=3, stride=1, padding=1+d_padding,
+                      dilation=dilation),
             nn.PReLU()))
 
         self.shirinking = []
@@ -34,7 +37,8 @@ class ModifiedFSRCNN(nn.Module):
         for _ in range(m_1):
             self.mapping.append(nn.Sequential(
                 nn.Conv2d(in_channels=s, out_channels=s,
-                          kernel_size=3, stride=1, padding=1),
+                          kernel_size=3, stride=1, padding=1+d_padding,
+                          dilation=dilation),
                 nn.PReLU()))
 
         self.expanding = []
@@ -126,7 +130,7 @@ class BaseNet(nn.Module):
 
 class DisentangleTeacherNet(BaseNet):
     def __init__(self, scale, n_colors, modules_to_freeze=None, initialize_from=None,
-                 modules_to_initialize=None):
+                 modules_to_initialize=None, dilation=1):
         super(DisentangleTeacherNet, self).__init__()
 
         self.scale = scale
@@ -138,7 +142,7 @@ class DisentangleTeacherNet(BaseNet):
         self.modules_to_freeze = modules_to_freeze
         self.initialize_from = initialize_from
         self.modules_to_initialize = modules_to_initialize
-        self.backbone = ModifiedFSRCNN(scale, n_colors, d, s, m_1, m_2)
+        self.backbone = ModifiedFSRCNN(scale, n_colors, d, s, m_1, m_2, dilation)
         self.weight_init()
         if initialize_from is not None:
             self.load_pretrained_model()
@@ -166,7 +170,7 @@ class DisentangleTeacherNet(BaseNet):
 
 class DisentangleStudentNet(BaseNet):
     def __init__(self, scale, n_colors, modules_to_freeze=None, initialize_from=None,
-                 modules_to_initialize=None):
+                 modules_to_initialize=None, dilation=1):
         super(DisentangleStudentNet, self).__init__()
 
         self.scale = scale
@@ -179,7 +183,7 @@ class DisentangleStudentNet(BaseNet):
         self.modules_to_freeze = modules_to_freeze
         self.modules_to_initialize = modules_to_initialize
 
-        self.backbone = ModifiedFSRCNN(scale, n_colors, d, s, m_1, m_2)
+        self.backbone = ModifiedFSRCNN(scale, n_colors, d, s, m_1, m_2, dilation)
         self.weight_init()
         if initialize_from is not None:
             self.load_pretrained_model()
@@ -208,7 +212,8 @@ class DisentangleStudentNet(BaseNet):
 
 class AttendSimilarityTeacherNet(BaseNet):
     def __init__(self, scale, n_colors,  d=56, s=12, m_1=4, m_2=3,
-                 modules_to_freeze=None, initialize_from=None, modules_to_initialize=None):
+                 modules_to_freeze=None, initialize_from=None, modules_to_initialize=None,
+                 dilation=1):
         super(AttendSimilarityTeacherNet, self).__init__()
 
         self.scale = scale
@@ -217,7 +222,7 @@ class AttendSimilarityTeacherNet(BaseNet):
         self.modules_to_initialize = modules_to_initialize
         self.modeuls_to_freeze = modules_to_freeze
 
-        self.backbone = ModifiedFSRCNN(scale, n_colors, d, s, m_1, m_2)
+        self.backbone = ModifiedFSRCNN(scale, n_colors, d, s, m_1, m_2, dilation)
         self.weight_init()
         if initialize_from is not None:
             self.load_pretrained_model()
@@ -245,7 +250,7 @@ class AttendSimilarityTeacherNet(BaseNet):
 
 class AttendSimilarityStudentNet(BaseNet):
     def __init__(self, scale, n_colors, d=56, s=12, m_1=4, m_2=3,layers_to_attend=None, modules_to_freeze=None,
-                 initialize_from=None, modules_to_initialize=None):
+                 initialize_from=None, modules_to_initialize=None, dilation=1):
         super(AttendSimilarityStudentNet, self).__init__()
 
         self.layers_to_attend = layers_to_attend if layers_to_attend is not None else []
@@ -256,7 +261,7 @@ class AttendSimilarityStudentNet(BaseNet):
         self.modules_to_freeze = modules_to_freeze
         self.modules_to_initialize = modules_to_initialize
 
-        self.backbone = ModifiedFSRCNN(scale, n_colors, d, s, m_1, m_2)
+        self.backbone = ModifiedFSRCNN(scale, n_colors, d, s, m_1, m_2, dilation)
         self.weight_init()
         if initialize_from is not None:
             self.load_pretrained_model()
