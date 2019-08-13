@@ -53,7 +53,7 @@ loss:
     reduction: 'mean'
     standardize: True
     lambda1: 1
-    lambda2: 1
+    lambda2: 0.00392156862
     lambda3: 0.0
     attend:
       - 'mapping:mapping:1'
