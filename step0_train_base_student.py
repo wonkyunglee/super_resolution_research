@@ -20,7 +20,7 @@ from models import get_model
 from losses import get_loss
 from optimizers import get_optimizer
 from schedulers import get_scheduler
-from visualizers import get_visualizer 
+from visualizers import get_visualizer
 from tensorboardX import SummaryWriter
 
 import utils.config
@@ -32,9 +32,9 @@ device = None
 
 
 def train_single_epoch(config, student_model, dataloader, criterion,
-                       optimizer, epoch, writer, visualizer, 
+                       optimizer, epoch, writer, visualizer,
                        postfix_dict):
-    student_model.train() 
+    student_model.train()
     batch_size = config.train.batch_size
     total_size = len(dataloader.dataset)
     total_step = math.ceil(total_size / batch_size)
@@ -47,15 +47,15 @@ def train_single_epoch(config, student_model, dataloader, criterion,
         LR_patch = LR_patch.to(device)
 
         optimizer.zero_grad()
-        
+
         pred_dict = student_model.forward(LR=LR_patch)
         pred_hr = pred_dict['hr']
-        loss = criterion(pred_hr, HR_patch) 
+        loss = criterion(pred_hr, HR_patch)
         log_dict['loss'] = loss.item()
 
         loss.backward()
         optimizer.step()
-        
+
         # logging
         f_epoch = epoch + i / total_step
         log_dict['lr'] = optimizer.param_groups[0]['lr']
@@ -66,7 +66,7 @@ def train_single_epoch(config, student_model, dataloader, criterion,
         desc += ', {:06d}/{:06d}, {:.2f} epoch'.format(i, total_step, f_epoch)
         tbar.set_description(desc)
         tbar.set_postfix(**postfix_dict)
-        
+
         # tensorboard
         if i % 100 == 0:
             log_step = int(f_epoch * 10000)
@@ -75,8 +75,8 @@ def train_single_epoch(config, student_model, dataloader, criterion,
                     writer.add_scalar('train/{}'.format(key), value, log_step)
 
 
-def evaluate_single_epoch(config, student_model, dataloader, 
-                          criterion, epoch, writer, visualizer, 
+def evaluate_single_epoch(config, student_model, dataloader,
+                          criterion, epoch, writer, visualizer,
                           postfix_dict, eval_type):
     student_model.eval()
     with torch.no_grad():
@@ -98,20 +98,20 @@ def evaluate_single_epoch(config, student_model, dataloader,
 
             pred_hr = quantize(pred_hr, config.data.rgb_range)
             total_psnr += get_psnr(pred_hr, HR_img, config.data.scale,
-                                  config.data.rgb_range, 
+                                  config.data.rgb_range,
                                   benchmark=eval_type=='test')
-            
+
             # logging
             f_epoch = epoch + i / total_step
             desc = '{:5s}'.format(eval_type)
             desc += ', {:06d}/{:06d}, {:.2f} epoch'.format(i, total_step, f_epoch)
             tbar.set_description(desc)
             tbar.set_postfix(**postfix_dict)
-            
+
             # tensorboard
             if writer is not None and eval_type == 'test':
                 fig = visualizer(LR_img, HR_img, pred_dict)
-                writer.add_figure('{}/{:04d}'.format(eval_type, i), fig, 
+                writer.add_figure('{}/{:04d}'.format(eval_type, i), fig,
                                  global_step=epoch)
         # logging
         log_dict = {}
@@ -119,7 +119,7 @@ def evaluate_single_epoch(config, student_model, dataloader,
         avg_psnr = total_psnr / (i+1)
         log_dict['loss'] = avg_loss
         log_dict['psnr'] = avg_psnr
-        
+
         # tensorboard
         for key, value in log_dict.items():
             if writer is not None:
@@ -134,36 +134,36 @@ def train(config, student_model, dataloaders, criterion,
     num_epochs = config.train.num_epochs
     if torch.cuda.device_count() > 1:
         student_model = torch.nn.DataParallel(student_model)
-    
+
     postfix_dict = {'train/lr': 0.0,
                     'train/loss': 0.0,
                     'val/psnr': 0.0,
-                    'val/loss': 0.0, 
-                    'test/psnr': 0.0, 
+                    'val/loss': 0.0,
+                    'test/psnr': 0.0,
                     'test/loss': 0.0}
     psnr_list = []
     best_psnr = 0.0
     best_psnr_mavg = 0.0
     for epoch in range(start_epoch, num_epochs):
-        
+
         # test phase
-        evaluate_single_epoch(config, student_model, 
+        evaluate_single_epoch(config, student_model,
                               dataloaders['test'],
-                              criterion, epoch, writer, 
+                              criterion, epoch, writer,
                               visualizer, postfix_dict,
                               eval_type='test')
-        
+
         # val phase
         psnr = evaluate_single_epoch(config, student_model,
                                      dataloaders['val'],
-                                     criterion, epoch, writer, 
-                                     visualizer, postfix_dict, 
+                                     criterion, epoch, writer,
+                                     visualizer, postfix_dict,
                                      eval_type='val')
         if config.scheduler.name == 'reduce_lr_on_plateau':
             scheduler.step(psnr)
         elif config.scheduler.name != 'reduce_lr_on_plateau':
             scheduler.step()
-            
+
         utils.checkpoint.save_checkpoint(config, student_model, optimizer,
                                          epoch, 0,
                                          model_type=model_type)
@@ -179,7 +179,7 @@ def train(config, student_model, dataloaders, criterion,
         # train phase
         train_single_epoch(config, student_model,
                            dataloaders['train'],
-                           criterion, optimizer, epoch, writer, 
+                           criterion, optimizer, epoch, writer,
                            visualizer, postfix_dict)
 
 
@@ -201,13 +201,13 @@ def run(config):
     checkpoint = utils.checkpoint.get_initial_checkpoint(config,
                                                          model_type=model_type)
     if checkpoint is not None:
-        last_epoch, step = utils.checkpoint.load_checkpoint(student_model, 
+        last_epoch, step = utils.checkpoint.load_checkpoint(student_model,
                                  optimizer, checkpoint, model_type=model_type)
     else:
         last_epoch, step = -1, -1
     print('student model from checkpoint: {} last epoch:{}'.format(
         checkpoint, last_epoch))
-    
+
     scheduler = get_scheduler(config, optimizer, last_epoch)
 
     print(config.data)
