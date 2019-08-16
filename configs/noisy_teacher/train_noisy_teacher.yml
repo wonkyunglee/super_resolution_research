@@ -1,0 +1,75 @@
+base_config: 'configs/noisy_teacher/base.yml'
+
+
+teacher_model:
+  name: 'noisy_teacher'
+  params:
+    scale: 2
+    n_colors: 1
+    initialize_from: 'results/attend_similarity/attend_similarity_teacher/checkpoint/'
+    modules_to_initialize:
+      - 'feature_extraction'
+      - 'shirinking'
+      - 'mapping'
+      - 'expanding'
+      - 'mapping2'
+      - 'expanding2'
+    layers_to_attend:
+      - 'mapping'
+
+
+
+student_model:
+  name: 'attend_similarity_student'
+  params:
+    scale: 2
+    n_colors: 1
+    modules_to_freeze:
+      - 'feature_extraction'
+      - 'shirinking'
+      - 'mapping'
+      - 'expanding'
+      - 'mapping2'
+      - 'expanding2'
+    initialize_from: 'results/attend_similarity/attend_similarity_student.distill_mapping.nogt/checkpoint/'
+    modules_to_initialize:
+      - 'feature_extraction'
+      - 'shirinking'
+      - 'mapping'
+      - 'expanding'
+      - 'mapping2'
+      - 'expanding2'
+
+
+train:
+  batch_size: 32
+  num_epochs: 1000
+  teacher_dir: '.noisy_teacher.from.distil_mapping.nogt'
+  student_dir: '.distill_mapping.nogt'
+
+
+eval:
+  batch_size: 1
+
+
+scheduler:
+  name: 'none'
+
+
+optimizer:
+  name: adam
+  params:
+    lr: 0.001
+
+
+loss:
+  name: 'l1loss'
+  params:
+    reduction: 'mean'
+
+visualizer:
+  name: 'step2'
+
+
+gpu: 1
+
