@@ -120,15 +120,21 @@ class BaseNet(nn.Module):
 
     def load_pretrained_model(self):
 
-        checkpoint = get_last_checkpoint(self.initialize_from)
-        checkpoint = torch.load(checkpoint)
-        new_state_dict = self.state_dict()
-        for key in checkpoint['state_dict'].keys():
-            for k in key.split('.'):
-                if k in self.modules_to_initialize:
-                    new_state_dict[key] = checkpoint['state_dict'][key]
-                    print('pretrain parameters: %s'%k)
-        self.load_state_dict(new_state_dict)
+        if type(self.initialize_from) != list:
+            self.initialize_from = [self.initialize_from]
+            self.modules_to_initialize = [self.modules_to_initialize]
+
+        for init_from, modules_to_init in zip(self.initialize_from, self.modules_to_initialize):
+            print(init_from)
+            checkpoint = get_last_checkpoint(init_from)
+            checkpoint = torch.load(checkpoint)
+            new_state_dict = self.state_dict()
+            for key in checkpoint['state_dict'].keys():
+                for k in key.split('.'):
+                    if k in modules_to_init:
+                        new_state_dict[key] = checkpoint['state_dict'][key]
+                        print('pretrain parameters: %s'%k)
+            self.load_state_dict(new_state_dict)
 
 
 class DisentangleTeacherNet(BaseNet):
