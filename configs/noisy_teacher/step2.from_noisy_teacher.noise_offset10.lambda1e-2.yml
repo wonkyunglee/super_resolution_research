@@ -6,22 +6,6 @@ teacher_model:
   params:
     scale: 2
     n_colors: 1
-    noise_offset: 10
-    initialize_from: 'results/noisy_teacher/noisy_teacher/checkpoint/'
-    modules_to_initialize:
-      - 'feature_extraction'
-      - 'shirinking'
-      - 'mapping'
-      - 'expanding'
-      - 'mapping2'
-      - 'expanding2'
-    modules_to_freeze:
-      - 'feature_extraction'
-      - 'shirinking'
-      - 'mapping'
-    layers_to_attend:
-      - 'mapping'
-
 
 
 student_model:
@@ -30,13 +14,10 @@ student_model:
     scale: 2
     n_colors: 1
     modules_to_freeze:
-      - 'feature_extraction'
-      - 'shirinking'
-      - 'mapping'
       - 'expanding'
       - 'mapping2'
       - 'expanding2'
-    initialize_from: 'results/attend_similarity/attend_similarity_student.distill_mapping.nogt/checkpoint/'
+    initialize_from: 'results/noisy_teacher/noisy_teacher.noisy_teacher.from.distill_mapping.nogt/checkpoint/'
     modules_to_initialize:
       - 'feature_extraction'
       - 'shirinking'
@@ -50,7 +31,7 @@ train:
   batch_size: 32
   num_epochs: 1000
   teacher_dir: '.noisy_teacher.from.distill_mapping.nogt'
-  student_dir: '.distill_mapping.nogt'
+  student_dir: '.from_noisy_teacher.noise_offset10.lambda1e-2'
 
 
 eval:
@@ -68,13 +49,21 @@ optimizer:
 
 
 loss:
-  name: 'l1loss'
+  name: 'attend_similarity_loss'
   params:
     reduction: 'mean'
+    reverse: True
+    standardize: False
+    lambda1: 1
+    lambda2: 0.01
+    lambda3: 0
+    attend:
+      - 'mapping:mapping:1'
+
 
 visualizer:
   name: 'step2'
 
 
-gpu: 1
+gpu: 0
 

@@ -6,8 +6,8 @@ teacher_model:
   params:
     scale: 2
     n_colors: 1
-    noise_offset: 10
-    initialize_from: 'results/noisy_teacher/noisy_teacher/checkpoint/'
+    noise_offset: 1
+    initialize_from: 'results/attend_similarity/attend_similarity_teacher/checkpoint/'
     modules_to_initialize:
       - 'feature_extraction'
       - 'shirinking'
@@ -15,10 +15,6 @@ teacher_model:
       - 'expanding'
       - 'mapping2'
       - 'expanding2'
-    modules_to_freeze:
-      - 'feature_extraction'
-      - 'shirinking'
-      - 'mapping'
     layers_to_attend:
       - 'mapping'
 
@@ -49,7 +45,7 @@ student_model:
 train:
   batch_size: 32
   num_epochs: 1000
-  teacher_dir: '.noisy_teacher.from.distill_mapping.nogt'
+  teacher_dir: '.noisy_teacher.from.distill_mapping.nogt.noise_offset1'
   student_dir: '.distill_mapping.nogt'
 
 
@@ -76,5 +72,5 @@ visualizer:
   name: 'step2'
 
 
-gpu: 1
+gpu: 0
 
