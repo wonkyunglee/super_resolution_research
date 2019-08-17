@@ -298,7 +298,7 @@ class AttendSimilarityStudentNet(BaseNet):
 
 class NoisyTeacherNet(BaseNet):
     def __init__(self, scale, n_colors, d=56, s=12, m_1=4, m_2=3,layers_to_attend=None, modules_to_freeze=None,
-                 initialize_from=None, modules_to_initialize=None, dilation=1, noise_offset=10):
+                 initialize_from=None, modules_to_initialize=None, dilation=1, noise_offset=10, distance='l1'):
         super(NoisyTeacherNet, self).__init__()
 
         self.layers_to_attend = layers_to_attend if layers_to_attend is not None else []
@@ -316,11 +316,16 @@ class NoisyTeacherNet(BaseNet):
         if modules_to_freeze is not None:
             self.freeze_modules()
         self.noise_offset = noise_offset
+        self.distance = distance
 
 
     def get_cos_similarity(self, x, y):
         dist = F.cosine_similarity(x, y, dim=1).unsqueeze(1)
         dist = (dist + 1.0) / 2.01
+        return dist
+
+    def get_l1_dist(self, x, y):
+        dist = torch.abs(x - y)
         return dist
 
 
@@ -334,8 +339,13 @@ class NoisyTeacherNet(BaseNet):
             if student_pred_dict is not None and layer_name in self.layers_to_attend:
                 teacher_x = self.backbone.network._modules[layer_name](x)
                 student_x = student_pred_dict[layer_name]
-                cos_sim = self.get_cos_similarity(student_x, teacher_x).detach()
-                std = (1 - cos_sim) * self.noise_offset
+                if self.distance == 'cos':
+                    dist = self.get_cos_similarity(student_x, teacher_x).detach()
+                    std = (1 - dist) * self.noise_offset
+                elif self.distance == 'l1':
+                    dist = self.get_l1_dist(student_x, teacher_x).detach()
+                    std = dist * self.noise_offset
+                print(torch.mean(std))
                 x = teacher_x + torch.randn_like(teacher_x).to(device) * std
             else:
                 x = self.backbone.network._modules[layer_name](x)
