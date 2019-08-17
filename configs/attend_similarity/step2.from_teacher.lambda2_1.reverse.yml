@@ -64,5 +64,5 @@ visualizer:
   name: 'step2'
 
 
-gpu: 2
+gpu: 1
 
