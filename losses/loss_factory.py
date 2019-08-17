@@ -97,7 +97,7 @@ def attend_similarity_loss(attend, reduction='sum', standardization=False,
 
     def distill_loss_fn(tl, sl, attention_map, reverse=False):
         if reverse:
-            distill_loss = torch.mean(torch.abs(tl - sl) * (1-attention_map))
+            distill_loss = torch.mean(torch.abs(tl - sl) * (1-attention_map).pow(5)) # focal loss
         else:
             distill_loss = torch.mean(torch.abs(tl - sl) * attention_map)
         return distill_loss

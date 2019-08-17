@@ -33,7 +33,7 @@ train:
   batch_size: 32
   num_epochs: 1000
   teacher_dir: '.noisy_teacher.from.distill_mapping.nogt'
-  student_dir: '.from_noisy_teacher.noise_offset10'
+  student_dir: '.from_noisy_teacher_and_student'
 
 
 eval:
@@ -57,7 +57,7 @@ loss:
     reverse: True
     standardize: False
     lambda1: 1
-    lambda2: 1
+    lambda2: 0.01
     lambda3: 0
     attend:
       - 'mapping:mapping:1'
