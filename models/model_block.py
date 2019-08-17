@@ -23,7 +23,7 @@ class MeanShift(nn.Conv2d):
         for p in self.parameters():
             p.requires_grad = False
 
-            
+
 class BasicBlock(nn.Sequential):
     def __init__(
         self, conv, in_channels, out_channels, kernel_size, stride=1, bias=False,
@@ -37,7 +37,7 @@ class BasicBlock(nn.Sequential):
 
         super(BasicBlock, self).__init__(*m)
 
-        
+
 class ResBlock(nn.Module):
     def __init__(
         self, conv, n_feats, kernel_size,
@@ -61,7 +61,7 @@ class ResBlock(nn.Module):
 
         return res
 
-    
+
 class Upsampler(nn.Sequential):
     def __init__(self, conv, scale, n_feats, bn=False, act=False, bias=True):
 
