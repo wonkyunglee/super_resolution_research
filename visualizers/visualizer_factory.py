@@ -39,13 +39,13 @@ def get_figure_basic(LR, HR, pred):
     fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, figsize=(16,4))
     cmap = 'gray'
     ax1.imshow(float2uint8(pred_residual_hr), cmap=cmap)
-    ax1.set_title('pred_residual_hr, mean_val : %.4f'%pred_residual_hr.mean())
+    ax1.set_title('pred_residual_hr, mean_val : %.4f'%torch.abs(pred_residual_hr).mean())
     ax2.imshow(float2uint8(pred_hr), cmap=cmap)
-    ax2.set_title('pred_hr, mean_val : %.4f'%pred_hr.mean())
+    ax2.set_title('pred_hr, mean_val : %.4f'%torch.abs(pred_hr).mean())
     ax3.imshow(float2uint8(HR), cmap=cmap)
-    ax3.set_title('ground_truth, mean_val : %.4f'%HR.mean())
+    ax3.set_title('ground_truth, mean_val : %.4f'%torch.abs(HR).mean())
     ax4.imshow(float2uint8(gt_diff), cmap=cmap)
-    ax4.set_title('GT - pred_hr, mean_val : %.4f'%(HR-pred_hr).mean())
+    ax4.set_title('GT - pred_hr, mean_val : %.4f'%torch.abs(HR-pred_hr).mean())
 
     return fig
 
@@ -71,13 +71,13 @@ def step2_visualizer(rgb_range):
         fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, figsize=(16,4))
         cmap = 'gray'
         ax1.imshow(float2uint8(quantize(pred_student_residual_hr, rgb_range), rgb_range), cmap=cmap)
-        ax1.set_title('pred_s_residual_hr, mean_val : %.4f'% pred_student_residual_hr.mean())
+        ax1.set_title('pred_s_residual_hr, mean_val : %.4f'% torch.abs(pred_student_residual_hr).mean())
         ax2.imshow(float2uint8(quantize(pred_student_hr, rgb_range), rgb_range), cmap=cmap)
-        ax2.set_title('pred_s_hr, mean_val : %.4f'%pred_student_hr.mean())
+        ax2.set_title('pred_s_hr, mean_val : %.4f'%torch.abs(pred_student_hr).mean())
         ax3.imshow(float2uint8(quantize(residual_diff, rgb_range), rgb_range), cmap=cmap)
-        ax3.set_title('residual_diff, mean_val : %.4f'%residual_diff.mean())
+        ax3.set_title('residual_diff, mean_val : %.4f'%torch.abs(residual_diff).mean())
         ax4.imshow(float2uint8(quantize(gt_diff, rgb_range), rgb_range), cmap=cmap)
-        ax4.set_title('GT - pred_hr, mean_val : %.4f'%(gt_diff).mean())
+        ax4.set_title('GT - pred_hr, mean_val : %.4f'%torch.abs(gt_diff).mean())
 
         return fig
 
@@ -99,15 +99,15 @@ def step2_attention_visualizer(rgb_range):
         fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(1, 5, figsize=(15,3))
         cmap = 'gray'
         ax1.imshow(float2uint8(quantize(pred_student_residual_hr, rgb_range), rgb_range), cmap=cmap)
-        ax1.set_title('pred_s_residual_hr, mean_val : %.4f'% pred_student_residual_hr.mean())
+        ax1.set_title('pred_s_residual_hr, mean_val : %.4f'% torch.abs(pred_student_residual_hr).mean())
         ax2.imshow(float2uint8(quantize(pred_student_hr, rgb_range), rgb_range), cmap=cmap)
-        ax2.set_title('pred_s_hr, mean_val : %.4f'%pred_student_hr.mean())
+        ax2.set_title('pred_s_hr, mean_val : %.4f'%torch.abs(pred_student_hr).mean())
         ax3.imshow(float2uint8(quantize(residual_diff, rgb_range), rgb_range), cmap=cmap)
-        ax3.set_title('residual_diff, mean_val : %.4f'%residual_diff.mean())
+        ax3.set_title('residual_diff, mean_val : %.4f'%torch.abs(residual_diff).mean())
         ax4.imshow(float2uint8(quantize(gt_diff, rgb_range), rgb_range), cmap=cmap)
-        ax4.set_title('GT - pred_hr, mean_val : %.4f'%(HR-pred_student_hr).mean())
+        ax4.set_title('GT - pred_hr, mean_val : %.4f'%torch.abs(HR-pred_student_hr).mean())
         ax5.imshow(float2uint8(quantize(attention, rgb_range), rgb_range), cmap=cmap)
-        ax5.set_title('attention, mean_val : %.4f'%(attention).mean())
+        ax5.set_title('attention, mean_val : %.4f'%torch.abs(attention).mean())
         return fig
 
     return get_figure

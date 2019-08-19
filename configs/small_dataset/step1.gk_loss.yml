@@ -1,0 +1,43 @@
+base_config: 'configs/small_dataset/base.yml'
+
+
+teacher_model:
+  name: 'fsrcnn_teacher'
+  params:
+    scale: 2
+    n_colors: 1
+
+
+train:
+  batch_size: 32
+  num_epochs: 300
+  teacher_dir: '.gk_loss'
+  fine_tune: False
+
+
+eval:
+  batch_size: 1
+
+
+scheduler:
+  name: 'none'
+
+
+optimizer:
+  name: adam
+  params:
+    lr: 0.001
+
+
+loss:
+  name: 'gaussian_kernel_loss'
+  params:
+    reduction: 'mean'
+
+
+visualizer:
+  name: 'step1'
+
+
+gpu: 0
+

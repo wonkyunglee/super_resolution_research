@@ -5,7 +5,6 @@ from __future__ import print_function
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
 import os
 
 device = None
@@ -28,12 +27,71 @@ def l2loss(reduction='sum', **_):
     return torch.nn.MSELoss(reduction=reduction)
 
 
-def l1loss(reduction='sum', **_):
-    return torch.nn.L1Loss(reduction=reduction)
+# def l1loss(reduction='sum', **_):
+#     return torch.nn.L1Loss(reduction=reduction)
 
 
 def l1loss(reduction='sum', **_):
-    return torch.nn.L1Loss(reduction=reduction)
+    l1loss_fn = torch.nn.L1Loss(reduction=reduction)
+
+    def loss_fn(pred_dict, HR, **_):
+        gt_loss = 0
+        loss_dict = dict()
+        pred_hr = pred_dict['hr']
+        gt_loss = l1loss_fn(pred_hr, HR)
+
+        loss_dict['loss'] = gt_loss
+        loss_dict['gt_loss'] = gt_loss
+        return loss_dict
+
+
+    return {'train':loss_fn,
+            'val':l1loss_fn}
+
+
+def gaussian_kernel_loss(reduction='sum', scale=2, **_):
+
+    l1loss_fn = torch.nn.L1Loss(reduction=reduction)
+    max_val = 5
+    epsilon = 1e-8
+    def loss_fn(pred_dict, LR, HR):
+        loss_dict = dict()
+        pred_hr = pred_dict['hr']
+        LR = nn.functional.interpolate(LR, scale_factor=scale, mode='bicubic')
+        diff = torch.abs(HR - LR)
+        std = torch.clamp(torch.max(diff) / (diff + epsilon), min=0.1, max=10)
+        temperature = 0.1
+        loss = 1 - torch.mean(torch.exp(-((HR - pred_hr) / std / temperature).pow(2)))
+
+        loss_dict['loss'] = loss
+        loss_dict['gt_loss'] = loss
+
+        return loss_dict
+
+    return {'train': loss_fn,
+            'val': l1loss_fn}
+
+
+def focal_l1_loss(reduction='sum', scale=2, **_):
+
+    l1loss_fn = torch.nn.L1Loss(reduction=reduction)
+    max_val = 5
+    epsilon = 1e-8
+    def loss_fn(pred_dict, LR, HR):
+        loss_dict = dict()
+        pred_hr = pred_dict['hr']
+        LR = nn.functional.interpolate(LR, scale_factor=scale, mode='bicubic')
+        diff = torch.abs(HR - LR)
+        weight = torch.clamp(torch.max(diff) / (diff + epsilon), min=1, max=100)
+        loss = torch.mean(torch.abs(HR - pred_hr) * weight)
+
+        loss_dict['loss'] = loss
+        loss_dict['gt_loss'] = loss
+
+        return loss_dict
+
+    return {'train': loss_fn,
+            'val': l1loss_fn}
 
 
 def distillation_loss(distill, reduction='sum', standardization=False,
