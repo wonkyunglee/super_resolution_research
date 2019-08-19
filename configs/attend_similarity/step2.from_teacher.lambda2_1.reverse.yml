@@ -1,74 +1,3 @@
-<<<<<<< HEAD
-base_config: 'configs/attend_similarity/base.yml'
-
-
-teacher_model:
-  name: 'attend_similarity_teacher'
-  params:
-    scale: 2
-    n_colors: 1
-
-
-student_model:
-  name: 'attend_similarity_student'
-  params:
-    scale: 2
-    n_colors: 1
-    modules_to_freeze:
-      - 'expanding'
-      - 'mapping2'
-      - 'expanding2'
-    initialize_from: 'results/attend_similarity/attend_similarity_teacher/checkpoint/'
-    modules_to_initialize:
-       - 'feature_extraction'
-       - 'shirinking'
-       - 'mapping'
-       - 'expanding'
-       - 'mapping2'
-       - 'expanding2'
-
-
-train:
-  batch_size: 32
-  num_epochs: 1000
-  teacher_dir: ''
-  student_dir: '.from_teacher.lambda2_1.reverse'
-
-
-eval:
-  batch_size: 1
-
-
-scheduler:
-  name: 'none'
-
-
-optimizer:
-  name: adam
-  params:
-    lr: 0.001
-
-
-loss:
-  name: 'attend_similarity_loss'
-  params:
-    reduction: 'mean'
-    standardize: True
-    lambda1: 1
-    lambda2: 100
-    lambda3: 0
-    reverse: True
-    attend:
-      - 'mapping:mapping:1'
-
-visualizer:
-  name: 'step2'
-
-
-gpu: 2
-
-||||||| merged common ancestors
-=======
 base_config: 'configs/attend_similarity/base.yml'
 
 
@@ -137,4 +66,3 @@ visualizer:
 
 gpu: 1
 
->>>>>>> master
