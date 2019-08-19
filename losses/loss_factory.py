@@ -82,7 +82,7 @@ def focal_l1_loss(reduction='sum', scale=2, **_):
         pred_hr = pred_dict['hr']
         LR = nn.functional.interpolate(LR, scale_factor=scale, mode='bicubic')
         diff = torch.abs(HR - LR)
-        weight = torch.clamp(torch.max(diff) / (diff + epsilon), min=1, max=100)
+        weight = torch.clamp(torch.min(diff) / (diff + epsilon), min=0.1, max=1)
         loss = torch.mean(torch.abs(HR - pred_hr) * weight)
 
         loss_dict['loss'] = loss
