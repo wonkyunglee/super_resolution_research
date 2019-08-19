@@ -7,7 +7,7 @@ teacher_model:
     scale: 2
     n_colors: 1
     noise_offset: 0.1
-    distance: 'l1'
+    distance: 'cos'
     # initialize_from: 'results/noisy_teacher/noisy_teacher/checkpoint/'
     initialize_from: 'results/attend_similarity/attend_similarity_teacher/checkpoint/'
     modules_to_initialize:
