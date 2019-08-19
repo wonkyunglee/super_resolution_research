@@ -19,7 +19,7 @@ student_model:
       - 'expanding2'
     initialize_from: 
       - 'results/attend_similarity/attend_similarity_student.distill_mapping.nogt/checkpoint/'
-      - 'results/noisy_teacher/noisy_teacher.noisy_teacher.from.distill_mapping.nogt.l1/checkpoint/'
+      - 'results/noisy_teacher/noisy_teacher.noisy_teacher.from.distill_mapping.nogt.cossim/checkpoint/'
     modules_to_initialize:
       - - 'feature_extraction'
         - 'shirinking'
@@ -32,7 +32,7 @@ student_model:
 train:
   batch_size: 32
   num_epochs: 1000
-  teacher_dir: '.noisy_teacher.from.distill_mapping.nogt.l1'
+  teacher_dir: '.noisy_teacher.from.distill_mapping.nogt.cossim'
   student_dir: '.from_noisy_teacher.cossim'
 
 
