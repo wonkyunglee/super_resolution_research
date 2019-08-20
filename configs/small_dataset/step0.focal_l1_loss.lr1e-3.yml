@@ -1,0 +1,42 @@
+base_config: 'configs/small_dataset/base.yml'
+
+
+student_model:
+  name: 'fsrcnn_student'
+  params:
+    scale: 2
+    n_colors: 1
+
+
+train:
+  batch_size: 32
+  num_epochs: 1000
+  student_dir: '.base.focal_l1_loss.lr1e-3'
+
+
+eval:
+  batch_size: 1
+
+
+scheduler:
+  name: 'none'
+
+
+optimizer:
+  name: adam
+  params:
+    lr: 0.001
+
+
+loss:
+  name: 'focal_l1_loss'
+  params:
+    reduction: 'mean'
+
+
+visualizer:
+  name: 'step0'
+
+
+gpu: 1
+
