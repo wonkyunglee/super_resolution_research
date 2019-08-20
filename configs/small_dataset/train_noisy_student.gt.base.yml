@@ -21,18 +21,10 @@ student_model:
       - 'mapping'
 
 
-
-teacher_model:
-  name: 'gt_noisy_teacher'
-  params:
-    scale: 2
-    n_colors: 1
-
-
 train:
   batch_size: 32
   num_epochs: 1000
-  teacher_dir: '.noisy_teacher.gt'
+  teacher_dir: ''
   student_dir: '.noisy_student.gt.base'
 
 
