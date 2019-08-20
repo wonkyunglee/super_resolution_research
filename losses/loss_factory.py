@@ -103,8 +103,8 @@ def distillation_loss(distill, reduction='sum', standardization=False,
         weight = float(weight)
         layers_for_distill.append((teacher_layer, student_layer, weight))
 
-    l1loss_fn = l1loss(reduction=reduction)
-    l2loss_fn = l2loss(reduction=reduction)
+    l1loss_fn = torch.nn.L1Loss(reduction=reduction)
+    l2loss_fn = torch.nn.MSELoss(reduction=reduction)
 
     if gt_loss_type == 'l1':
         gt_loss_fn = l1loss_fn

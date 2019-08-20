@@ -1,0 +1,66 @@
+base_config: 'configs/small_dataset/base.yml'
+
+
+teacher_model:
+  name: 'fsrcnn_teacher'
+  params:
+    scale: 2
+    n_colors: 1
+
+
+student_model:
+  name: 'fsrcnn_student'
+  params:
+    scale: 2
+    n_colors: 1
+    # modules_to_freeze:
+    #   - 'expanding'
+    #   - 'mapping2'
+    #   - 'expanding2'
+    initialize_from:
+      - 'results/small_data/fsrcnn_teacher/checkpoint/'
+    modules_to_initialize:
+      - - 'feature_extraction'
+        - 'shrinking'
+        - 'mapping'
+        - 'expanding'
+        - 'last_layer'
+
+
+train:
+  batch_size: 32
+  num_epochs: 1000
+  teacher_dir: ''
+  student_dir: '.distill_mapping'
+
+
+eval:
+  batch_size: 1
+
+
+scheduler:
+  name: 'none'
+
+
+optimizer:
+  name: adam
+  params:
+    lr: 0.001
+
+
+loss:
+  name: 'distillation_loss'
+  params:
+    reduction: 'mean'
+    standardization: False 
+    distill:
+    # - 'teacher_layer_name:student_layer_name:weight'
+      - 'mapping:mapping:1'
+
+
+visualizer:
+  name: 'step2'
+
+
+gpu: 3
+
