@@ -434,7 +434,7 @@ class GTNoisyTeacherNet(BaseNet):
         self.modules_to_freeze = modules_to_freeze
         self.modules_to_initialize = modules_to_initialize
 
-        self.backbone = ModifiedFSRCNN(scale, n_colors, d, s, m_1, m_2, dilation)
+        self.backbone = FSRCNN(scale, n_colors, d, s, m_1, m_2, dilation)
         self.weight_init()
         if initialize_from is not None:
             self.load_pretrained_model()
@@ -454,23 +454,17 @@ class GTNoisyTeacherNet(BaseNet):
         return dist
 
 
-    def forward(self, LR, HR, student_pred_dict=None):
+    def forward(self, LR, HR, **_):
         ret_dict = dict()
         upscaled_lr = nn.functional.interpolate(LR, scale_factor=self.scale, mode='bicubic')
+        diff = self.get_l1_dist(LR, HR)
+        std = diff * self.noise_offset
         x = HR
 
         layer_names = self.backbone.network._modules.keys()
         for layer_name in layer_names:
-            if student_pred_dict is not None and layer_name in self.layers_to_attend:
+            if layer_name in self.layers_to_attend:
                 teacher_x = self.backbone.network._modules[layer_name](x)
-                student_x = student_pred_dict[layer_name]
-                if self.distance == 'cos':
-                    dist = self.get_cos_similarity(student_x, teacher_x).detach()
-                    std = (1 - dist) * self.noise_offset
-                elif self.distance == 'l1':
-                    dist = self.get_l1_dist(student_x, teacher_x).detach()
-                    std = dist * self.noise_offset
-                print(torch.mean(std))
                 x = teacher_x + torch.randn_like(teacher_x).to(device) * std
             else:
                 x = self.backbone.network._modules[layer_name](x)
@@ -581,6 +575,10 @@ def get_attend_similarity_student(scale, n_colors, **kwargs):
 
 def get_noisy_teacher(scale, n_colors, **kwargs):
     return NoisyTeacherNet(scale, n_colors, **kwargs)
+
+
+def get_gt_noisy_teacher(scale, n_colors, **kwargs):
+    return GTNoisyTeacherNet(scale, n_colors, **kwargs)
 
 
 def get_fsrcnn_teacher(scale, n_colors, **kwargs):
