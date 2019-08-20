@@ -205,8 +205,6 @@ def run(config):
     criterion = get_loss(config)
 
     # for teacher
-    trainable_params = filter(lambda p: p.requires_grad,
-                              teacher_model.parameters())
     optimizer_t = get_optimizer(config, teacher_model.parameters())
     checkpoint_t = utils.checkpoint.get_initial_checkpoint(config,
                                                          model_type='teacher')
@@ -219,6 +217,9 @@ def run(config):
         checkpoint_t, last_epoch_t))
 
     # for student
+
+    trainable_params = filter(lambda p: p.requires_grad,
+                              student_model.parameters())
     optimizer_s = get_optimizer(config, trainable_params)
     checkpoint_s = utils.checkpoint.get_initial_checkpoint(config,
                                                          model_type='student')
