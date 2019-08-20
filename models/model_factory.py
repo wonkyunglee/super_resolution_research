@@ -555,6 +555,62 @@ class FSRCNNStudentNet(BaseNet):
         return ret_dict
 
 
+class GTNoisyStudentNet(BaseNet):
+    def __init__(self, scale, n_colors, d=56, s=12, m_1=4, m_2=3,layers_to_attend=None, modules_to_freeze=None,
+                 initialize_from=None, modules_to_initialize=None, dilation=1, noise_offset=10, distance='l1'):
+        super(GTNoisyStudentNet, self).__init__()
+
+        self.layers_to_attend = layers_to_attend if layers_to_attend is not None else []
+        self.scale = scale
+        upscale_factor = scale
+
+        self.initialize_from = initialize_from
+        self.modules_to_freeze = modules_to_freeze
+        self.modules_to_initialize = modules_to_initialize
+
+        self.backbone = FSRCNN(scale, n_colors, d, s, m_1, m_2, dilation)
+        self.weight_init()
+        if initialize_from is not None:
+            self.load_pretrained_model()
+        if modules_to_freeze is not None:
+            self.freeze_modules()
+        self.noise_offset = noise_offset
+        self.distance = distance
+
+
+    def get_cos_similarity(self, x, y):
+        dist = F.cosine_similarity(x, y, dim=1).unsqueeze(1)
+        dist = (dist + 1.0) / 2.01
+        return dist
+
+    def get_l1_dist(self, x, y):
+        dist = torch.abs(x - y)
+        return dist
+
+
+    def forward(self, LR, HR, **_):
+        ret_dict = dict()
+        upscaled_lr = nn.functional.interpolate(LR, scale_factor=self.scale, mode='bicubic')
+        diff = self.get_l1_dist(upscaled_lr, HR)
+        std = diff * self.noise_offset
+        x = upscaled_lr
+
+        layer_names = self.backbone.network._modules.keys()
+        for layer_name in layer_names:
+            if layer_name in self.layers_to_attend:
+                student_x = self.backbone.network._modules[layer_name](x)
+                x = student_x + torch.randn_like(student_x).to(device) * std
+            else:
+                x = self.backbone.network._modules[layer_name](x)
+            ret_dict[layer_name] = x
+
+        residual_hr = x
+        hr = upscaled_lr + residual_hr
+        ret_dict['hr'] = hr
+        ret_dict['residual_hr'] = residual_hr
+
+        return ret_dict
+
 
 # For Resolution Disentangling Experiments
 def get_disentangle_student(scale, n_colors, **kwargs):
@@ -587,6 +643,10 @@ def get_fsrcnn_teacher(scale, n_colors, **kwargs):
 
 def get_fsrcnn_student(scale, n_colors, **kwargs):
     return FSRCNNStudentNet(scale, n_colors, **kwargs)
+
+
+def get_gt_noisy_student(scale, n_colors, **kwargs):
+    return GTNoisyStudentNet(scale, n_colors, **kwargs)
 
 
 def get_model(config, model_type):
