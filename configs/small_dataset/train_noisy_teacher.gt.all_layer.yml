@@ -18,7 +18,10 @@ teacher_model:
     #  - 'shirinking'
     #  - 'mapping'
     layers_to_attend:
+      - 'feature_extraction'
+      - 'shrinking'
       - 'mapping'
+      - 'expanding'
 
 
 
@@ -45,7 +48,7 @@ student_model:
 train:
   batch_size: 32
   num_epochs: 1000
-  teacher_dir: '.noisy_teacher.gt'
+  teacher_dir: '.noisy_teacher.gt.all_layer'
   student_dir: '.distill_mapping'
 
 
@@ -72,5 +75,5 @@ visualizer:
   name: 'step2'
 
 
-gpu: 1
+gpu: 0
 

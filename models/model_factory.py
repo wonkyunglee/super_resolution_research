@@ -457,7 +457,7 @@ class GTNoisyTeacherNet(BaseNet):
     def forward(self, LR, HR, **_):
         ret_dict = dict()
         upscaled_lr = nn.functional.interpolate(LR, scale_factor=self.scale, mode='bicubic')
-        diff = self.get_l1_dist(LR, HR)
+        diff = self.get_l1_dist(upscaled_lr, HR)
         std = diff * self.noise_offset
         x = HR
 

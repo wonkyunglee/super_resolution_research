@@ -55,11 +55,11 @@ def train_single_epoch(config, student_model, teacher_model, dataloader, criteri
 
         student_pred_dict = student_model.forward(LR=LR_patch)
         teacher_pred_dict = teacher_model.forward(LR=LR_patch, HR=HR_patch, student_pred_dict=student_pred_dict)
-        pred_hr = teacher_pred_dict['hr']
-        loss = criterion(pred_hr, HR_patch)
-        log_dict['loss'] = loss.item()
+        loss = criterion['train'](teacher_pred_dict, HR_patch)
 
-        loss.backward()
+        for k, v in loss.items():
+            log_dict[k] = v.item()
+        loss['loss'].backward()
         optimizer.step()
 
         f_epoch = epoch + i / total_step
@@ -101,7 +101,7 @@ def evaluate_single_epoch(config, student_model, teacher_model, dataloader,
 
             teacher_pred_dict = teacher_model.forward(LR=LR_img, HR=HR_img)
             pred_hr = teacher_pred_dict['hr']
-            total_loss += criterion(pred_hr, HR_img).item()
+            total_loss += criterion['val'](pred_hr, HR_img).item()
 
             pred_hr = quantize(pred_hr, config.data.rgb_range)
             total_psnr += get_psnr(pred_hr, HR_img, config.data.scale,

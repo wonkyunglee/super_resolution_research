@@ -6,20 +6,6 @@ teacher_model:
   params:
     scale: 2
     n_colors: 1
-    noise_offset: 10
-    # initialize_from: 'results/noisy_teacher/noisy_teacher/checkpoint/'
-    # modules_to_initialize:
-    #   - 'feature_extraction'
-    # - 'shrinking'
-    #  - 'mapping'
-    #  - 'expanding'
-    # modules_to_freeze:
-    #  - 'feature_extraction'
-    #  - 'shirinking'
-    #  - 'mapping'
-    layers_to_attend:
-      - 'mapping'
-
 
 
 student_model:
@@ -28,12 +14,9 @@ student_model:
     scale: 2
     n_colors: 1
     modules_to_freeze:
-      - 'feature_extraction'
-      - 'shrinking'
-      - 'mapping'
-      - 'expanding'
+      - 'last_layer'
     initialize_from:
-      - 'results/small_data/fsrcnn_student.distill_mapping/checkpoint/'
+      - 'results/small_data/gt_noisy_teacher.noisy_teacher.gt.all_layer/checkpoint/'
     modules_to_initialize:
       - - 'feature_extraction'
         - 'shrinking'
@@ -45,8 +28,8 @@ student_model:
 train:
   batch_size: 32
   num_epochs: 1000
-  teacher_dir: '.noisy_teacher.gt'
-  student_dir: '.distill_mapping'
+  teacher_dir: '.noisy_teacher.gt.all_layer'
+  student_dir: '.distill_mapping.from_noisy_gt.all_layer'
 
 
 eval:
@@ -64,9 +47,17 @@ optimizer:
 
 
 loss:
-  name: 'l1loss'
+  name: 'distillation_loss'
   params:
     reduction: 'mean'
+    standardization: False
+    distill:
+    # - 'teacher_layer_name:student_layer_name:weight'
+      - 'feature_extraction:feature_extraction:0.01'
+      - 'shrinking:shrinking:0.01'
+      - 'mapping:mapping:0.01'
+      - 'expanding:expanding:0.01'
+
 
 visualizer:
   name: 'step2'
