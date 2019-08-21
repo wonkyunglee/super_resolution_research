@@ -11,7 +11,7 @@ data:
         patch_size: 192
         data_range: '1-50'
         test_every: 500
-  
+
   valid:
     - name: 'DIV2K'
       params:
@@ -19,7 +19,7 @@ data:
         augment: False
         patch_size: 192
         data_range: '801-810'
-    
+
   test:
     - name: 'Set5'
       params:
@@ -31,4 +31,4 @@ data:
 
 train:
   dir: './results/small_data/'
-  
+
