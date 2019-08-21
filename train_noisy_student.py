@@ -96,7 +96,8 @@ def evaluate_single_epoch(config, student_model, dataloader,
             HR_img = HR_img[:,:1].to(device)
             LR_img = LR_img[:,:1].to(device)
 
-            student_pred_dict = student_model.forward(LR=LR_img, HR=HR_img)
+            upscaled_lr = nn.functional.interpolate(LR_img, scale_factor=2, mode='bicubic')
+            student_pred_dict = student_model.forward(LR=LR_img, HR=upscaled_lr)
             pred_hr = student_pred_dict['hr']
             total_loss += criterion['val'](pred_hr, HR_img).item()
 

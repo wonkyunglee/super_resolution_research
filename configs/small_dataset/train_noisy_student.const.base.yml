@@ -1,0 +1,55 @@
+base_config: 'configs/small_dataset/base.yml'
+
+
+student_model:
+  name: 'const_noisy_student'
+  params:
+    scale: 2
+    n_colors: 1
+    noise_offset: 0.01
+    # initialize_from: 'results/noisy_teacher/noisy_teacher/checkpoint/'
+    # modules_to_initialize:
+    #   - 'feature_extraction'
+    # - 'shrinking'
+    #  - 'mapping'
+    #  - 'expanding'
+    # modules_to_freeze:
+    #  - 'feature_extraction'
+    #  - 'shirinking'
+    #  - 'mapping'
+    layers_to_attend:
+      - 'mapping'
+
+
+train:
+  batch_size: 32
+  num_epochs: 1000
+  teacher_dir: ''
+  student_dir: '.noisy_student.const.base'
+
+
+eval:
+  batch_size: 1
+
+
+scheduler:
+  name: 'none'
+
+
+optimizer:
+  name: adam
+  params:
+    lr: 0.001
+
+
+loss:
+  name: 'l1loss'
+  params:
+    reduction: 'mean'
+
+visualizer:
+  name: 'step2'
+
+
+gpu: 0
+
