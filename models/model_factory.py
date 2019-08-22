@@ -465,7 +465,10 @@ class GTNoisyTeacherNet(BaseNet):
         for layer_name in layer_names:
             if layer_name in self.layers_to_attend:
                 teacher_x = self.backbone.network._modules[layer_name](x)
-                x = teacher_x + torch.randn_like(teacher_x).to(device) * std
+                x = teacher_x
+                if self.training:
+                    noise = torch.randn_like(teacher_x).to(device) * std
+                    x += noise
             else:
                 x = self.backbone.network._modules[layer_name](x)
             ret_dict[layer_name] = x
@@ -599,8 +602,10 @@ class GTNoisyStudentNet(BaseNet):
         for layer_name in layer_names:
             if layer_name in self.layers_to_attend:
                 student_x = self.backbone.network._modules[layer_name](x)
-                noise = torch.randn_like(student_x).to(device) * std
-                x = student_x + noise
+                x = student_x
+                if self.training:
+                    noise = torch.randn_like(student_x).to(device) * std
+                    x += noise
             else:
                 x = self.backbone.network._modules[layer_name](x)
             ret_dict[layer_name] = x
@@ -656,8 +661,10 @@ class ConstNoisyStudentNet(BaseNet):
         for layer_name in layer_names:
             if layer_name in self.layers_to_attend:
                 student_x = self.backbone.network._modules[layer_name](x)
-                noise = torch.randn_like(student_x).to(device) * std
-                x = student_x + noise
+                x = student_x
+                if self.training:
+                    noise = torch.randn_like(student_x).to(device) * std
+                    x += noise
             else:
                 x = self.backbone.network._modules[layer_name](x)
             ret_dict[layer_name] = x
