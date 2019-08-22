@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
 sys.path.append('../')
-from model_block import RelationalLayer
+from models.model_block import RelationalLayer
 from utils.checkpoint import get_last_checkpoint
 
 device = None
@@ -150,7 +150,7 @@ class ModifiedFSRCNN(nn.Module):
     def forward(self, x):
         return self.network(x)
 
-    
+
 
 class RelationalFSRCNN(nn.Module):
     def __init__(self, scale, n_colors, d=56, s=12, m_1=4, m_2=3, dilation=1):
@@ -212,7 +212,7 @@ class RelationalFSRCNN(nn.Module):
 
     def forward(self, x):
         return self.network(x)
-    
+
 
 class BaseNet(nn.Module):
 
@@ -851,7 +851,7 @@ class RFSRCNNStudentNet(BaseNet):
         ret_dict['residual_hr'] = residual_hr
 
         return ret_dict
-    
+
 
 # For Resolution Disentangling Experiments
 def get_disentangle_student(scale, n_colors, **kwargs):
@@ -898,7 +898,7 @@ def get_selective_gt_noisy_student(scale, n_colors, **kwargs):
     return SelectiveGTNoisyStudentNet(scale, n_colors, **kwargs)
 
 
-def get_rsrcnn_student(scale, n_colors, **kwargs):
+def get_rfsrcnn_student(scale, n_colors, **kwargs):
     return RFSRCNNStudentNet(scale, n_colors, **kwargs)
 
 
