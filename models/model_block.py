@@ -91,27 +91,42 @@ class Upsampler(nn.Sequential):
 
         super(Upsampler, self).__init__(*m)
 
-        
+
 class RelationalLayer(nn.Module):
-    
-    def __init__(self, kernel_size, padding, channel_num):
+
+    def __init__(self, kernel_size, padding, channel_num, layer_num):
         super(RelationalLayer, self).__init__()
-        
+
         self.kernel_size = kernel_size
         self.padding = padding
         self.channel_num = channel_num
-        self.relation_net = nn.Sequential(
-            nn.Conv1d(kernel_size * kernel_size * channel_num, 
-                      channel_num, kernel_size=1),
-            nn.PReLU(),
-            nn.Conv1d(channel_num, channel_num, kernel_size=1),
+
+        relational_module_list = []
+        relational_module_list.append(
+            nn.Conv1d(kernel_size * kernel_size * channel_num,
+                    channel_num, kernel_size=1)
+        )
+        relational_module_list.append(
             nn.PReLU()
         )
-    
+        for i in range(layer_num - 1):
+            relational_module_list.append(
+                nn.Conv1d(channel_num,
+                      channel_num, kernel_size=1)
+            )
+            relational_module_list.append(
+                nn.PReLU()
+            )
+
+        self.relation_net = nn.Sequential(
+            *relational_module_list
+        )
+
+
     def forward(self, x):
-        out = F.unfold(x, kernel_size=self.kernel_size, 
+        out = F.unfold(x, kernel_size=self.kernel_size,
                                    padding=self.padding)
         out = self.relation_net(out)
         out = F.fold(out, x.shape[-2:] ,kernel_size=1)
-        
+
         return out
