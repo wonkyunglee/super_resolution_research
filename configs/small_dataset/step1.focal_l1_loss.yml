@@ -41,5 +41,5 @@ visualizer:
   name: 'step1'
 
 
-gpu: 0
+gpu: 3
 

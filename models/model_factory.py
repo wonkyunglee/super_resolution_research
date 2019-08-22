@@ -154,7 +154,7 @@ class ModifiedFSRCNN(nn.Module):
 
 class RelationalFSRCNN(nn.Module):
     def __init__(self, scale, n_colors, d=56, s=12, m_1=4, m_2=3,
-                 dilation=1, relational_kernel_size=3):
+                 dilation=1, relational_kernel_size=3, layer_num=2):
         super(RelationalFSRCNN, self).__init__()
 
         self.scale = scale
@@ -162,6 +162,7 @@ class RelationalFSRCNN(nn.Module):
         d_padding = dilation -1
         rk = relational_kernel_size
         rp = relational_kernel_size // 2 # padding
+        ln = layer_num
 
         self.feature_extraction = []
         self.feature_extraction.append(nn.Sequential(
@@ -187,7 +188,8 @@ class RelationalFSRCNN(nn.Module):
                           kernel_size=3, stride=1, padding=1+d_padding,
                           dilation=dilation),
                 nn.PReLU(),
-                RelationalLayer(kernel_size=rk, padding=rp, channel_num=s)
+                RelationalLayer(kernel_size=rk, padding=rp, channel_num=s,
+                                layer_num=ln)
             ))
 
         self.expanding = []
@@ -819,7 +821,7 @@ class SelectiveGTNoisyStudentNet(ConstNoisyStudentNet):
 
 class RFSRCNNStudentNet(BaseNet):
     def __init__(self, scale, n_colors, d=56, s=12, m_1=4, m_2=3,layers_to_attend=None, modules_to_freeze=None,
-                 initialize_from=None, modules_to_initialize=None, dilation=1, relational_kernel_size=3):
+                 initialize_from=None, modules_to_initialize=None, dilation=1, relational_kernel_size=3, layer_num=2):
         super(RFSRCNNStudentNet, self).__init__()
 
         self.layers_to_attend = layers_to_attend if layers_to_attend is not None else []
@@ -831,7 +833,7 @@ class RFSRCNNStudentNet(BaseNet):
         self.modules_to_initialize = modules_to_initialize
 
         self.backbone = RelationalFSRCNN(scale, n_colors, d, s, m_1, m_2,
-                                         dilation, relational_kernel_size)
+                                         dilation, relational_kernel_size, layer_num)
         self.weight_init()
         if initialize_from is not None:
             self.load_pretrained_model()
