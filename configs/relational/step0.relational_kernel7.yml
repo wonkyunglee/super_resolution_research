@@ -6,13 +6,13 @@ student_model:
   params:
     scale: 2
     n_colors: 1
-    relational_kernel_size: 3
+    relational_kernel_size: 7
 
 
 train:
   batch_size: 32
   num_epochs: 1000
-  student_dir: '.base'
+  student_dir: '.base.relational_kernel7'
 
 
 eval:
