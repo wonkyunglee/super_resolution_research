@@ -467,7 +467,10 @@ class GTNoisyTeacherNet(BaseNet):
         for layer_name in layer_names:
             if layer_name in self.layers_to_attend:
                 teacher_x = self.backbone.network._modules[layer_name](x)
-                x = teacher_x + torch.randn_like(teacher_x).to(device) * std
+                x = teacher_x
+                if self.training:
+                    noise = torch.randn_like(teacher_x).to(device) * std
+                    x += noise
             else:
                 x = self.backbone.network._modules[layer_name](x)
             ret_dict[layer_name] = x
@@ -601,8 +604,10 @@ class GTNoisyStudentNet(BaseNet):
         for layer_name in layer_names:
             if layer_name in self.layers_to_attend:
                 student_x = self.backbone.network._modules[layer_name](x)
-                noise = torch.randn_like(student_x).to(device) * std
-                x = student_x + noise
+                x = student_x
+                if self.training:
+                    noise = torch.randn_like(student_x).to(device) * std
+                    x += noise
             else:
                 x = self.backbone.network._modules[layer_name](x)
             ret_dict[layer_name] = x
@@ -658,8 +663,46 @@ class ConstNoisyStudentNet(BaseNet):
         for layer_name in layer_names:
             if layer_name in self.layers_to_attend:
                 student_x = self.backbone.network._modules[layer_name](x)
+                x = student_x
+                if self.training:
+                    noise = torch.randn_like(student_x).to(device) * std
+                    x += noise
+            else:
+                x = self.backbone.network._modules[layer_name](x)
+            ret_dict[layer_name] = x
+
+        residual_hr = x
+        hr = upscaled_lr + residual_hr
+        ret_dict['hr'] = hr
+        ret_dict['residual_hr'] = residual_hr
+
+        return ret_dict
+
+
+class SelectiveGTNoisyStudentNet(ConstNoisyStudentNet):
+    def __init__(self, scale, n_colors, d=56, s=12, m_1=4, m_2=3,layers_to_attend=None, modules_to_freeze=None,
+                 initialize_from=None, modules_to_initialize=None, dilation=1, noise_offset=0.01, distance='l1'):
+        super(SelectiveGTNoisyStudentNet, self).__init__(scale, n_colors,
+                                                            d, s, m_1, m_2,
+                                                            layers_to_attend, modules_to_freeze,
+                                                            initialize_from, modules_to_initialize,
+                                                            dilation, noise_offset, distance)
+
+    def forward(self, LR, HR, **_):
+        ret_dict = dict()
+        upscaled_lr = nn.functional.interpolate(LR, scale_factor=self.scale, mode='bicubic')
+        diff = self.get_l1_dist(upscaled_lr, HR)
+        std = diff * self.noise_offset
+        x = upscaled_lr
+
+        layer_names = self.backbone.network._modules.keys()
+        for layer_name in layer_names:
+            if layer_name in self.layers_to_attend:
+                student_x = self.backbone.network._modules[layer_name](x)
                 noise = torch.randn_like(student_x).to(device) * std
-                x = student_x + noise
+                x = student_x
+                if np.random.rand() > 0.5:
+                    x += noise
             else:
                 x = self.backbone.network._modules[layer_name](x)
             ret_dict[layer_name] = x
