@@ -72,18 +72,16 @@ def gaussian_kernel_loss(reduction='sum', scale=2, **_):
             'val': l1loss_fn}
 
 
-def focal_l1_loss(reduction='sum', scale=2, **_):
+def focal_l1_loss(reduction='sum', scale=2, max_val=5, min_val=0.5, **_):
 
     l1loss_fn = torch.nn.L1Loss(reduction=reduction)
-    max_val = 5
-    epsilon = 1e-8
     def loss_fn(pred_dict, LR, HR):
         loss_dict = dict()
         pred_hr = pred_dict['hr']
         LR = nn.functional.interpolate(LR, scale_factor=scale, mode='bicubic')
         diff = torch.abs(HR - LR)
         # weight = torch.clamp(torch.min(diff) / (diff + epsilon), min=0.1, max=1)
-        weight = torch.clamp(diff / torch.mean(diff), min=0.5, max=5)
+        weight = torch.clamp(diff / torch.mean(diff), min=min_val, max=max_val)
         loss = torch.mean(torch.abs(HR - pred_hr) * weight)
 
         loss_dict['loss'] = loss
