@@ -9,7 +9,7 @@ teacher_model:
 
 
 train:
-  batch_size: 32
+  batch_size: 96
   num_epochs: 300
   teacher_dir: '.focal_l1_loss'
   fine_tune: False
@@ -41,5 +41,5 @@ visualizer:
   name: 'step1'
 
 
-gpu: 0
+gpu: 2
 
