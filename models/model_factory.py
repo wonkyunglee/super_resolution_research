@@ -1,12 +1,14 @@
+import os, sys
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
-import sys
 sys.path.append('../')
+
 from utils.checkpoint import get_last_checkpoint
 
-import os
 device = None
 
 
@@ -677,6 +679,42 @@ class ConstNoisyStudentNet(BaseNet):
         return ret_dict
 
 
+class SelectiveGTNoisyStudentNet(ConstNoisyStudentNet):
+    def __init__(self, scale, n_colors, d=56, s=12, m_1=4, m_2=3,layers_to_attend=None, modules_to_freeze=None,
+                 initialize_from=None, modules_to_initialize=None, dilation=1, noise_offset=0.01, distance='l1'):
+        super(SelectiveGTNoisyStudentNet, self).__init__(scale, n_colors,
+                                                            d, s, m_1, m_2,
+                                                            layers_to_attend, modules_to_freeze,
+                                                            initialize_from, modules_to_initialize,
+                                                            dilation, noise_offset, distance)
+
+    def forward(self, LR, HR, **_):
+        ret_dict = dict()
+        upscaled_lr = nn.functional.interpolate(LR, scale_factor=self.scale, mode='bicubic')
+        diff = self.get_l1_dist(upscaled_lr, HR)
+        std = diff * self.noise_offset
+        x = upscaled_lr
+
+        layer_names = self.backbone.network._modules.keys()
+        for layer_name in layer_names:
+            if layer_name in self.layers_to_attend:
+                student_x = self.backbone.network._modules[layer_name](x)
+                noise = torch.randn_like(student_x).to(device) * std
+                x = student_x
+                if np.random.rand() > 0.5:
+                    x += noise
+            else:
+                x = self.backbone.network._modules[layer_name](x)
+            ret_dict[layer_name] = x
+
+        residual_hr = x
+        hr = upscaled_lr + residual_hr
+        ret_dict['hr'] = hr
+        ret_dict['residual_hr'] = residual_hr
+
+        return ret_dict
+
+
 # For Resolution Disentangling Experiments
 def get_disentangle_student(scale, n_colors, **kwargs):
     return DisentangleStudentNet(scale, n_colors, **kwargs)
@@ -716,6 +754,10 @@ def get_gt_noisy_student(scale, n_colors, **kwargs):
 
 def get_const_noisy_student(scale, n_colors, **kwargs):
     return ConstNoisyStudentNet(scale, n_colors, **kwargs)
+
+
+def get_selective_gt_noisy_student(scale, n_colors, **kwargs):
+    return SelectiveGTNoisyStudentNet(scale, n_colors, **kwargs)
 
 
 def get_model(config, model_type):
