@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
 sys.path.append('../')
-
+from model_block import RelationalLayer
 from utils.checkpoint import get_last_checkpoint
 
 device = None
@@ -150,6 +150,69 @@ class ModifiedFSRCNN(nn.Module):
     def forward(self, x):
         return self.network(x)
 
+    
+
+class RelationalFSRCNN(nn.Module):
+    def __init__(self, scale, n_colors, d=56, s=12, m_1=4, m_2=3, dilation=1):
+        super(RelationalFSRCNN, self).__init__()
+
+        self.scale = scale
+        upscale_factor = scale
+        d_padding = dilation -1
+
+        self.feature_extraction = []
+        self.feature_extraction.append(nn.Sequential(
+            nn.Conv2d(in_channels=n_colors,
+                      out_channels=d, kernel_size=3, stride=1, padding=1+d_padding,
+                      dilation=dilation),
+            nn.PReLU(),
+            nn.Conv2d(in_channels=d, out_channels=d,
+                      kernel_size=3, stride=1, padding=1+d_padding,
+                      dilation=dilation),
+            nn.PReLU()))
+
+        self.shrinking = []
+        self.shrinking.append(nn.Sequential(
+            nn.Conv2d(in_channels=d, out_channels=s,
+                      kernel_size=1, stride=1, padding=0),
+            nn.PReLU()))
+
+        self.mapping = []
+        for _ in range(m_1):
+            self.mapping.append(nn.Sequential(
+                nn.Conv2d(in_channels=s, out_channels=s,
+                          kernel_size=3, stride=1, padding=1+d_padding,
+                          dilation=dilation),
+                nn.PReLU(),
+                RelationalLayer(kernel_size=3, padding=1, channel_num=s)
+            ))
+
+        self.expanding = []
+        self.expanding.append(nn.Sequential(
+            nn.Conv2d(in_channels=s, out_channels=d,
+                      kernel_size=1, stride=1, padding=0),
+            nn.PReLU()))
+
+
+        self.last_layer = []
+        self.last_layer.append(nn.Sequential(
+            #nn.Conv2d(d, n_colors, kernel_size=9, stride=1, padding=4))
+            nn.Conv2d(d, n_colors, kernel_size=3, stride=1, padding=1))
+        )
+
+        self.network = nn.Sequential(
+            OrderedDict([
+                ('feature_extraction', nn.Sequential(*self.feature_extraction)),
+                ('shrinking', nn.Sequential(*self.shrinking)),
+                ('mapping', nn.Sequential(*self.mapping)),
+                ('expanding', nn.Sequential(*self.expanding)),
+                ('last_layer', nn.Sequential(*self.last_layer)),
+            ]))
+
+
+    def forward(self, x):
+        return self.network(x)
+    
 
 class BaseNet(nn.Module):
 
@@ -715,6 +778,81 @@ class SelectiveGTNoisyStudentNet(ConstNoisyStudentNet):
         return ret_dict
 
 
+class SelectiveGTNoisyStudentNet(ConstNoisyStudentNet):
+    def __init__(self, scale, n_colors, d=56, s=12, m_1=4, m_2=3,layers_to_attend=None, modules_to_freeze=None,
+                 initialize_from=None, modules_to_initialize=None, dilation=1, noise_offset=0.01, distance='l1'):
+        super(SelectiveGTNoisyStudentNet, self).__init__(scale, n_colors,
+                                                            d, s, m_1, m_2,
+                                                            layers_to_attend, modules_to_freeze,
+                                                            initialize_from, modules_to_initialize,
+                                                            dilation, noise_offset, distance)
+
+    def forward(self, LR, HR, **_):
+        ret_dict = dict()
+        upscaled_lr = nn.functional.interpolate(LR, scale_factor=self.scale, mode='bicubic')
+        diff = self.get_l1_dist(upscaled_lr, HR)
+        std = diff * self.noise_offset
+        x = upscaled_lr
+
+        layer_names = self.backbone.network._modules.keys()
+        for layer_name in layer_names:
+            if layer_name in self.layers_to_attend:
+                student_x = self.backbone.network._modules[layer_name](x)
+                noise = torch.randn_like(student_x).to(device) * std
+                x = student_x
+                if np.random.rand() > 0.5:
+                    x += noise
+            else:
+                x = self.backbone.network._modules[layer_name](x)
+            ret_dict[layer_name] = x
+
+        residual_hr = x
+        hr = upscaled_lr + residual_hr
+        ret_dict['hr'] = hr
+        ret_dict['residual_hr'] = residual_hr
+
+        return ret_dict
+
+
+class RFSRCNNStudentNet(BaseNet):
+    def __init__(self, scale, n_colors, d=56, s=12, m_1=4, m_2=3,layers_to_attend=None, modules_to_freeze=None,
+                 initialize_from=None, modules_to_initialize=None, dilation=1):
+        super(RFSRCNNStudentNet, self).__init__()
+
+        self.layers_to_attend = layers_to_attend if layers_to_attend is not None else []
+        self.scale = scale
+        upscale_factor = scale
+
+        self.initialize_from = initialize_from
+        self.modules_to_freeze = modules_to_freeze
+        self.modules_to_initialize = modules_to_initialize
+
+        self.backbone = RelationalFSRCNN(scale, n_colors, d, s, m_1, m_2, dilation)
+        self.weight_init()
+        if initialize_from is not None:
+            self.load_pretrained_model()
+        if modules_to_freeze is not None:
+            self.freeze_modules()
+
+
+    def forward(self, LR, teacher_pred_dict=None):
+        ret_dict = dict()
+        upscaled_lr = nn.functional.interpolate(LR, scale_factor=self.scale, mode='bicubic')
+        x = upscaled_lr
+
+        layer_names = self.backbone.network._modules.keys()
+        for layer_name in layer_names:
+            x = self.backbone.network._modules[layer_name](x)
+            ret_dict[layer_name] = x
+
+        residual_hr = x
+        hr = upscaled_lr + residual_hr
+        ret_dict['hr'] = hr
+        ret_dict['residual_hr'] = residual_hr
+
+        return ret_dict
+    
+
 # For Resolution Disentangling Experiments
 def get_disentangle_student(scale, n_colors, **kwargs):
     return DisentangleStudentNet(scale, n_colors, **kwargs)
@@ -758,6 +896,10 @@ def get_const_noisy_student(scale, n_colors, **kwargs):
 
 def get_selective_gt_noisy_student(scale, n_colors, **kwargs):
     return SelectiveGTNoisyStudentNet(scale, n_colors, **kwargs)
+
+
+def get_rsrcnn_student(scale, n_colors, **kwargs):
+    return RFSRCNNStudentNet(scale, n_colors, **kwargs)
 
 
 def get_model(config, model_type):
