@@ -8,7 +8,7 @@ data:
       params:
         base_dir: './data/DIV2K'
         augment: True
-        patch_size: 192
+        patch_size: 168
         data_range: '1-50'
         test_every: 500
 
@@ -17,8 +17,8 @@ data:
       params:
         base_dir: './data/DIV2K'
         augment: False
-        patch_size: 192
-        data_range: '801-810'
+        patch_size: 168
+        data_range: '801-802'
 
   test:
     - name: 'Set5'

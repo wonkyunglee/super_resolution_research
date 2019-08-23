@@ -219,6 +219,141 @@ class RelationalFSRCNN(nn.Module):
         return self.network(x)
 
 
+class RelationalLastFSRCNN(nn.Module):
+    def __init__(self, scale, n_colors, d=56, s=12, m_1=4, m_2=3,
+                 dilation=1, relational_kernel_size=3, layer_num=2):
+        super(RelationalLastFSRCNN, self).__init__()
+
+        self.scale = scale
+        upscale_factor = scale
+        d_padding = dilation -1
+        rk = relational_kernel_size
+        rp = relational_kernel_size // 2 # padding
+        ln = layer_num
+
+        self.feature_extraction = []
+        self.feature_extraction.append(nn.Sequential(
+            nn.Conv2d(in_channels=n_colors,
+                      out_channels=d, kernel_size=3, stride=1, padding=1+d_padding,
+                      dilation=dilation),
+            nn.PReLU(),
+            nn.Conv2d(in_channels=d, out_channels=d,
+                      kernel_size=3, stride=1, padding=1+d_padding,
+                      dilation=dilation),
+            nn.PReLU()))
+
+        self.shrinking = []
+        self.shrinking.append(nn.Sequential(
+            nn.Conv2d(in_channels=d, out_channels=s,
+                      kernel_size=1, stride=1, padding=0),
+            nn.PReLU()))
+
+        self.mapping = []
+        for _ in range(m_1):
+            self.mapping.append(nn.Sequential(
+                nn.Conv2d(in_channels=s, out_channels=s,
+                          kernel_size=3, stride=1, padding=1+d_padding,
+                          dilation=dilation),
+                nn.PReLU()
+            ))
+
+        self.expanding = []
+        self.expanding.append(nn.Sequential(
+            nn.Conv2d(in_channels=s, out_channels=d,
+                      kernel_size=1, stride=1, padding=0),
+            nn.PReLU()))
+
+
+        self.last_layer = []
+        self.last_layer.append(nn.Sequential(
+            #nn.Conv2d(d, n_colors, kernel_size=9, stride=1, padding=4))
+            nn.Conv2d(d, n_colors, kernel_size=3, stride=1, padding=1),
+            RelationalLayer(kernel_size=rk, padding=rp, channel_num=n_colors,
+                            layer_num=ln))
+        )
+
+        self.network = nn.Sequential(
+            OrderedDict([
+                ('feature_extraction', nn.Sequential(*self.feature_extraction)),
+                ('shrinking', nn.Sequential(*self.shrinking)),
+                ('mapping', nn.Sequential(*self.mapping)),
+                ('expanding', nn.Sequential(*self.expanding)),
+                ('last_layer', nn.Sequential(*self.last_layer)),
+            ]))
+
+
+    def forward(self, x):
+        return self.network(x)
+
+
+class RelationalMiddleFSRCNN(nn.Module):
+    def __init__(self, scale, n_colors, d=56, s=12, m_1=4, m_2=3,
+                 dilation=1, relational_kernel_size=3, layer_num=2):
+        super(RelationalMiddleFSRCNN, self).__init__()
+
+        self.scale = scale
+        upscale_factor = scale
+        d_padding = dilation -1
+        rk = relational_kernel_size
+        rp = relational_kernel_size // 2 # padding
+        ln = layer_num
+
+        self.feature_extraction = []
+        self.feature_extraction.append(nn.Sequential(
+            nn.Conv2d(in_channels=n_colors,
+                      out_channels=d, kernel_size=3, stride=1, padding=1+d_padding,
+                      dilation=dilation),
+            nn.PReLU(),
+            nn.Conv2d(in_channels=d, out_channels=d,
+                      kernel_size=3, stride=1, padding=1+d_padding,
+                      dilation=dilation),
+            nn.PReLU()))
+
+        self.shrinking = []
+        self.shrinking.append(nn.Sequential(
+            nn.Conv2d(in_channels=d, out_channels=s,
+                      kernel_size=1, stride=1, padding=0),
+            nn.PReLU()))
+
+        self.mapping = []
+        for _ in range(m_1):
+            self.mapping.append(nn.Sequential(
+                nn.Conv2d(in_channels=s, out_channels=s,
+                          kernel_size=3, stride=1, padding=1+d_padding,
+                          dilation=dilation),
+                nn.PReLU()
+            ))
+        self.mapping.append(nn.Sequential(
+            RelationalLayer(kernel_size=rk, padding=rp, channel_num=s,
+                            layer_num=ln)
+        ))
+
+        self.expanding = []
+        self.expanding.append(nn.Sequential(
+            nn.Conv2d(in_channels=s, out_channels=d,
+                      kernel_size=1, stride=1, padding=0),
+            nn.PReLU()))
+
+
+        self.last_layer = []
+        self.last_layer.append(nn.Sequential(
+            #nn.Conv2d(d, n_colors, kernel_size=9, stride=1, padding=4))
+            nn.Conv2d(d, n_colors, kernel_size=3, stride=1, padding=1)
+        ))
+
+        self.network = nn.Sequential(
+            OrderedDict([
+                ('feature_extraction', nn.Sequential(*self.feature_extraction)),
+                ('shrinking', nn.Sequential(*self.shrinking)),
+                ('mapping', nn.Sequential(*self.mapping)),
+                ('expanding', nn.Sequential(*self.expanding)),
+                ('last_layer', nn.Sequential(*self.last_layer)),
+            ]))
+
+
+    def forward(self, x):
+        return self.network(x)
+
 class BaseNet(nn.Module):
 
     def __init__(self):
@@ -858,6 +993,86 @@ class RFSRCNNStudentNet(BaseNet):
 
         return ret_dict
 
+class RLFSRCNNStudentNet(BaseNet):
+    def __init__(self, scale, n_colors, d=56, s=12, m_1=4, m_2=3,layers_to_attend=None, modules_to_freeze=None,
+                 initialize_from=None, modules_to_initialize=None, dilation=1, relational_kernel_size=3, layer_num=2):
+        super(RLFSRCNNStudentNet, self).__init__()
+
+        self.layers_to_attend = layers_to_attend if layers_to_attend is not None else []
+        self.scale = scale
+        upscale_factor = scale
+
+        self.initialize_from = initialize_from
+        self.modules_to_freeze = modules_to_freeze
+        self.modules_to_initialize = modules_to_initialize
+
+        self.backbone = RelationalLastFSRCNN(scale, n_colors, d, s, m_1, m_2,
+                                         dilation, relational_kernel_size, layer_num)
+        self.weight_init()
+        if initialize_from is not None:
+            self.load_pretrained_model()
+        if modules_to_freeze is not None:
+            self.freeze_modules()
+
+
+    def forward(self, LR, teacher_pred_dict=None):
+        ret_dict = dict()
+        upscaled_lr = nn.functional.interpolate(LR, scale_factor=self.scale, mode='bicubic')
+        x = upscaled_lr
+
+        layer_names = self.backbone.network._modules.keys()
+        for layer_name in layer_names:
+            x = self.backbone.network._modules[layer_name](x)
+            ret_dict[layer_name] = x
+
+        residual_hr = x
+        hr = upscaled_lr + residual_hr
+        ret_dict['hr'] = hr
+        ret_dict['residual_hr'] = residual_hr
+
+        return ret_dict
+
+
+class RMFSRCNNStudentNet(BaseNet):
+    def __init__(self, scale, n_colors, d=56, s=12, m_1=4, m_2=3,layers_to_attend=None, modules_to_freeze=None,
+                 initialize_from=None, modules_to_initialize=None, dilation=1, relational_kernel_size=3, layer_num=2):
+        super(RMFSRCNNStudentNet, self).__init__()
+
+        self.layers_to_attend = layers_to_attend if layers_to_attend is not None else []
+        self.scale = scale
+        upscale_factor = scale
+
+        self.initialize_from = initialize_from
+        self.modules_to_freeze = modules_to_freeze
+        self.modules_to_initialize = modules_to_initialize
+
+        self.backbone = RelationalMiddleFSRCNN(scale, n_colors, d, s, m_1, m_2,
+                                         dilation, relational_kernel_size, layer_num)
+        self.weight_init()
+        if initialize_from is not None:
+            self.load_pretrained_model()
+        if modules_to_freeze is not None:
+            self.freeze_modules()
+
+
+    def forward(self, LR, teacher_pred_dict=None):
+        ret_dict = dict()
+        upscaled_lr = nn.functional.interpolate(LR, scale_factor=self.scale, mode='bicubic')
+        x = upscaled_lr
+
+        layer_names = self.backbone.network._modules.keys()
+        for layer_name in layer_names:
+            x = self.backbone.network._modules[layer_name](x)
+            ret_dict[layer_name] = x
+
+        residual_hr = x
+        hr = upscaled_lr + residual_hr
+        ret_dict['hr'] = hr
+        ret_dict['residual_hr'] = residual_hr
+
+        return ret_dict
+
+
 
 # For Resolution Disentangling Experiments
 def get_disentangle_student(scale, n_colors, **kwargs):
@@ -906,6 +1121,14 @@ def get_selective_gt_noisy_student(scale, n_colors, **kwargs):
 
 def get_rfsrcnn_student(scale, n_colors, **kwargs):
     return RFSRCNNStudentNet(scale, n_colors, **kwargs)
+
+
+def get_rlfsrcnn_student(scale, n_colors, **kwargs):
+    return RLFSRCNNStudentNet(scale, n_colors, **kwargs)
+
+
+def get_rmfsrcnn_student(scale, n_colors, **kwargs):
+    return RMFSRCNNStudentNet(scale, n_colors, **kwargs)
 
 
 def get_model(config, model_type):

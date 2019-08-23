@@ -1,0 +1,44 @@
+base_config: 'configs/relational/base.yml'
+
+
+student_model:
+  name: 'rfsrcnn_student'
+  params:
+    scale: 2
+    n_colors: 1
+    relational_kernel_size: 5
+    layer_num: 4
+
+
+train:
+  batch_size: 32
+  num_epochs: 1000
+  student_dir: '.base.relational_kernel5.layer_num4'
+
+
+eval:
+  batch_size: 1
+
+
+scheduler:
+  name: 'none'
+
+
+optimizer:
+  name: adam
+  params:
+    lr: 0.001
+
+
+loss:
+  name: 'l1loss'
+  params:
+    reduction: 'mean'
+
+
+visualizer:
+  name: 'step0'
+
+
+gpu: 1
+
