@@ -1,0 +1,42 @@
+base_config: 'configs/sampling/base.yml'
+
+
+student_model:
+  name: 'sigma_student'
+  params:
+    scale: 2
+    n_colors: 1
+
+
+train:
+  batch_size: 32
+  num_epochs: 1000
+  student_dir: '.base'
+
+
+eval:
+  batch_size: 1
+
+
+scheduler:
+  name: 'none'
+
+
+optimizer:
+  name: adam
+  params:
+    lr: 0.001
+
+
+loss:
+  name: 'gaussian_mle_loss'
+  params:
+    reduction: 'mean'
+
+
+visualizer:
+  name: 'sigma'
+
+
+gpu: 1
+

@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import os
+import math
 
 device = None
 
@@ -197,3 +198,24 @@ def attend_similarity_loss(attend, reduction='sum', standardization=False,
 
     return {'train':loss_fn,
             'val':l1loss_fn}
+
+
+def gaussian_mle_loss(reduction='sum', **_):
+    l1loss_fn = torch.nn.L1Loss(reduction=reduction)
+    
+    def loss_fn(pred_dict, HR, **_):
+        gt_loss = 0
+        loss_dict = dict()
+        pred_hr_mu = pred_dict['hr_mu']
+        pred_hr_sigma = pred_dict['hr_sigma']
+        mle_loss = (1/2 * torch.log(pred_hr_sigma) +  1/(2 * pred_hr_sigma) * (HR - pred_hr_mu).pow(2)).mean()
+
+        loss_dict['loss'] = mle_loss
+        loss_dict['mle_loss'] = mle_loss
+        return loss_dict
+
+
+    return {'train':loss_fn,
+            'val':l1loss_fn}
+
+
