@@ -49,6 +49,31 @@ def get_figure_basic(LR, HR, pred):
 
     return fig
 
+
+def sigma_visualizer(rgb_range):
+    def get_figure(LR, HR, pred):
+        LR = LR[0]
+        HR = HR[0]
+        pred_residual_hr_mu = pred['residual_hr_mu'][0]
+        pred_residual_hr_sigma = pred['hr_sigma'][0]
+        pred_hr = pred['hr'][0]
+        gt_diff = torch.abs(HR - pred_hr)
+
+        fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, figsize=(16,4))
+        cmap = 'gray'
+        ax1.imshow(float2uint8(pred_residual_hr_mu), cmap=cmap)
+        ax1.set_title('pred_residual_hr_mu, mean_val : %.4f'%torch.abs(pred_residual_hr_mu).mean())
+        ax2.imshow(float2uint8(pred_residual_hr_sigma, normalize=True), cmap=cmap)
+        ax2.set_title('pred_residual_hr_sigma, mean_val : %.4f'%torch.abs(pred_residual_hr_sigma).mean())
+        ax3.imshow(float2uint8(pred_hr), cmap=cmap)
+        ax3.set_title('pred_hr, mean_val : %.4f'%torch.abs(pred_hr).mean())
+        ax4.imshow(float2uint8(gt_diff), cmap=cmap)
+        ax4.set_title('GT - pred_hr, mean_val : %.4f'%torch.abs(HR-pred_hr).mean())
+
+        return fig
+    return get_figure
+
+
 def step0_visualizer(rgb_range):
     return get_figure_basic
 

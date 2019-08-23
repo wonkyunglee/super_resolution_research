@@ -73,7 +73,6 @@ class FSRCNN(nn.Module):
         return self.network(x)
 
 
-
 class ModifiedFSRCNN(nn.Module):
     def __init__(self, scale, n_colors, d=56, s=12, m_1=4, m_2=3, dilation=1):
         super(ModifiedFSRCNN, self).__init__()
@@ -218,6 +217,66 @@ class RelationalFSRCNN(nn.Module):
     def forward(self, x):
         return self.network(x)
 
+    
+class SigmaFSRCNN(nn.Module):
+    def __init__(self, scale, n_colors, d=56, s=12, m_1=4, m_2=3, dilation=1):
+        super(SigmaFSRCNN, self).__init__()
+
+
+        self.scale = scale
+        upscale_factor = scale
+        d_padding = dilation -1
+
+        self.feature_extraction = []
+        self.feature_extraction.append(nn.Sequential(
+            nn.Conv2d(in_channels=n_colors,
+                      out_channels=d, kernel_size=3, stride=1, padding=1+d_padding,
+                      dilation=dilation),
+            nn.PReLU(),
+            nn.Conv2d(in_channels=d, out_channels=d,
+                      kernel_size=3, stride=1, padding=1+d_padding,
+                      dilation=dilation),
+            nn.PReLU()))
+
+        self.shrinking = []
+        self.shrinking.append(nn.Sequential(
+            nn.Conv2d(in_channels=d, out_channels=s,
+                      kernel_size=1, stride=1, padding=0),
+            nn.PReLU()))
+
+        self.mapping = []
+        for _ in range(m_1):
+            self.mapping.append(nn.Sequential(
+                nn.Conv2d(in_channels=s, out_channels=s,
+                          kernel_size=3, stride=1, padding=1+d_padding,
+                          dilation=dilation),
+                nn.PReLU()))
+
+        self.expanding = []
+        self.expanding.append(nn.Sequential(
+            nn.Conv2d(in_channels=s, out_channels=d,
+                      kernel_size=1, stride=1, padding=0),
+            nn.PReLU()))
+
+
+        self.last_layer = []
+        self.last_layer.append(nn.Sequential(
+            #nn.Conv2d(d, n_colors, kernel_size=9, stride=1, padding=4))
+            nn.Conv2d(d, n_colors*2, kernel_size=3, stride=1, padding=1))
+        )
+
+        self.network = nn.Sequential(
+            OrderedDict([
+                ('feature_extraction', nn.Sequential(*self.feature_extraction)),
+                ('shrinking', nn.Sequential(*self.shrinking)),
+                ('mapping', nn.Sequential(*self.mapping)),
+                ('expanding', nn.Sequential(*self.expanding)),
+                ('last_layer', nn.Sequential(*self.last_layer)),
+            ]))
+
+
+    def forward(self, x):
+        return self.network(x)
 
 class BaseNet(nn.Module):
 
@@ -859,6 +918,53 @@ class RFSRCNNStudentNet(BaseNet):
         return ret_dict
 
 
+class SigmaStudentNet(BaseNet):
+    def __init__(self, scale, n_colors, d=56, s=12, m_1=4, m_2=3,layers_to_attend=None, modules_to_freeze=None,
+                 initialize_from=None, modules_to_initialize=None, dilation=1, relational_kernel_size=3, layer_num=2):
+        super(SigmaStudentNet, self).__init__()
+
+        self.layers_to_attend = layers_to_attend if layers_to_attend is not None else []
+        self.scale = scale
+        upscale_factor = scale
+
+        self.initialize_from = initialize_from
+        self.modules_to_freeze = modules_to_freeze
+        self.modules_to_initialize = modules_to_initialize
+
+        self.backbone = SigmaFSRCNN(scale, n_colors, d, s, m_1, m_2,
+                               dilation)
+        self.weight_init()
+        if initialize_from is not None:
+            self.load_pretrained_model()
+        if modules_to_freeze is not None:
+            self.freeze_modules()
+
+
+    def forward(self, LR, teacher_pred_dict=None):
+        ret_dict = dict()
+        upscaled_lr = nn.functional.interpolate(LR, scale_factor=self.scale, mode='bicubic')
+        x = upscaled_lr
+
+        layer_names = self.backbone.network._modules.keys()
+        for layer_name in layer_names:
+            x = self.backbone.network._modules[layer_name](x)
+            ret_dict[layer_name] = x
+
+        residual_hr_mu = x[:,::2,:,:]
+        residual_hr_sigma = F.softplus(x[:,1::2,:,:])
+        
+        residual_hr = residual_hr_mu + \
+            torch.rand_like(residual_hr_mu).to(device) * residual_hr_sigma
+        
+        hr = upscaled_lr + residual_hr
+        ret_dict['hr'] = hr
+        ret_dict['residual_hr'] = residual_hr
+        ret_dict['hr_mu'] = residual_hr_mu + upscaled_lr
+        ret_dict['residual_hr_mu'] = residual_hr_mu
+        ret_dict['hr_sigma'] = residual_hr_sigma
+        return ret_dict
+    
+    
 # For Resolution Disentangling Experiments
 def get_disentangle_student(scale, n_colors, **kwargs):
     return DisentangleStudentNet(scale, n_colors, **kwargs)
@@ -906,6 +1012,10 @@ def get_selective_gt_noisy_student(scale, n_colors, **kwargs):
 
 def get_rfsrcnn_student(scale, n_colors, **kwargs):
     return RFSRCNNStudentNet(scale, n_colors, **kwargs)
+
+
+def get_sigma_student(scale, n_colors, **kwargs):
+    return SigmaStudentNet(scale, n_colors, **kwargs)
 
 
 def get_model(config, model_type):
