@@ -13,6 +13,7 @@ def get_psnr(sr, hr, scale, rgb_range, benchmark=False):
             convert = diff.new_tensor(gray_coeffs).view(1, 3, 1, 1) / 256
             diff = diff.mul(convert).sum(dim=1)
     else:
+        #shave = scale + 15
         shave = scale + 6
 
     valid = diff[..., shave:-shave, shave:-shave]

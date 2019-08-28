@@ -1,0 +1,43 @@
+base_config: 'configs/metric_learning/base.yml'
+
+
+teacher_model:
+  name: 'mappingfsrcnn_teacher'
+  params:
+    scale: 2
+    n_colors: 1
+
+
+train:
+  batch_size: 32
+  num_epochs: 1000
+  teacher_dir: ''
+
+
+eval:
+  batch_size: 1
+
+
+scheduler:
+  name: 'none'
+
+
+optimizer:
+  name: adam
+  params:
+    lr: 0.001
+    weight_decay: 0.01
+
+
+loss:
+  name: 'contrastive_loss'
+  params:
+    reduction: 'mean'
+
+
+visualizer:
+  name: 'step1'
+
+
+gpu: 1
+

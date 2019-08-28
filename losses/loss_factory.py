@@ -202,7 +202,7 @@ def attend_similarity_loss(attend, reduction='sum', standardization=False,
 
 def gaussian_mle_loss(reduction='sum', **_):
     l1loss_fn = torch.nn.L1Loss(reduction=reduction)
-    
+
     def loss_fn(pred_dict, HR, **_):
         gt_loss = 0
         loss_dict = dict()
@@ -217,5 +217,25 @@ def gaussian_mle_loss(reduction='sum', **_):
 
     return {'train':loss_fn,
             'val':l1loss_fn}
+
+
+def contrastive_loss(reduction='mean', lambda1=1, lambda2=1, margin=0.1, **_):
+
+    l1loss_fn = torch.nn.L1Loss(reduction=reduction)
+    l2loss_fn = torch.nn.MSELoss(reduction=reduction)
+    loss_dict = dict()
+    def loss_fn(pred_dict_lr, pred_dict_hr, label):
+        mapping_lr = pred_dict_lr['mapping']
+        mapping_hr = pred_dict_hr['mapping']
+        diff = l2loss_fn(mapping_lr, mapping_hr)
+        loss = lambda1 * label * diff + lambda2 * (1 - label) * max(0, margin - diff)
+        print(label,  label * diff.item(),  (1 - label) * max(0, margin - diff.item()), diff.item())
+        loss_dict['loss'] = loss
+        loss_dict['diff'] = diff
+
+        return loss_dict
+
+    return {'train': loss_fn,
+            'val': loss_fn}
 
 

@@ -40,10 +40,10 @@ def train_single_epoch(config, student_model, dataloader, criterion,
     total_step = math.ceil(total_size / batch_size)
 
     log_dict = {}
-
+    rf = 7
     tbar = tqdm.tqdm(enumerate(dataloader), total=total_step)
     for i, (LR_patch, HR_patch, filepath) in tbar:
-        HR_patch = HR_patch.to(device)
+        HR_patch = HR_patch[:,:,rf:-rf,rf:-rf].to(device)
         LR_patch = LR_patch.to(device)
         optimizer.zero_grad()
 
@@ -78,6 +78,7 @@ def evaluate_single_epoch(config, student_model, dataloader,
                           criterion, epoch, writer, visualizer,
                           postfix_dict, eval_type):
     student_model.eval()
+    rf = 7
     with torch.no_grad():
         batch_size = config.eval.batch_size
         total_size = len(dataloader.dataset)
@@ -88,7 +89,7 @@ def evaluate_single_epoch(config, student_model, dataloader,
         total_psnr = 0
         total_loss = 0
         for i, (LR_img, HR_img, filepath) in tbar:
-            HR_img = HR_img[:,:1].to(device)
+            HR_img = HR_img[:,:1, rf:-rf, rf:-rf].to(device)
             LR_img = LR_img[:,:1].to(device)
             pred_dict = student_model.forward(LR=LR_img)
             pred_hr = pred_dict['hr']

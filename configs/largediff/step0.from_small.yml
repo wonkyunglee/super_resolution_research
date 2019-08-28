@@ -1,0 +1,54 @@
+base_config: 'configs/largediff/base.origin.yml'
+
+
+student_model:
+  name: 'pointfsrcnn_student'
+  params:
+    scale: 2
+    n_colors: 1
+    modules_to_freeze:
+      - 'feature_extraction'
+      - 'shrinking'
+      - 'mapping'
+      # - 'expanding'
+      # - 'last_layer'
+    initialize_from: 'results/largediff/pointfsrcnn_teacher.small.lr1e-3/checkpoint/'
+    modules_to_initialize:
+       - 'feature_extraction'
+       - 'shrinking'
+       - 'mapping'
+       - 'expanding'
+       - 'last_layer'
+
+train:
+  batch_size: 32
+  num_epochs: 1000
+  student_dir: '.from_small'
+
+
+eval:
+  batch_size: 1
+
+
+scheduler:
+  name: 'none'
+
+
+optimizer:
+  name: adam
+  params:
+    lr: 0.001
+
+
+loss:
+  name: 'l1loss'
+  params:
+    reduction: 'mean'
+
+
+visualizer:
+  name: 'step0'
+
+
+gpu: 1
+

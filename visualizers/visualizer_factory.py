@@ -10,7 +10,8 @@ import sys
 sys.path.append('../')
 from utils.utils import quantize
 
-def float2uint8(image, normalize=False, rgb_range=1):
+def float2uint8(image, normalize=False, rgb_range=1, margin=15):
+    
     if type(image) == torch.Tensor:
         image = image.detach().cpu().numpy()
     if len(image.shape) == 4:
@@ -26,6 +27,7 @@ def float2uint8(image, normalize=False, rgb_range=1):
         image = np.transpose(image, (1,2,0))
     if image.shape[-1] == 1:
         image = np.squeeze(image)
+    image = image[margin:-margin, margin:-margin]
     return image
 
 

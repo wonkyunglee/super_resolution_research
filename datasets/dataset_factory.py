@@ -1,8 +1,9 @@
 from torch.utils.data import ConcatDataset
 from torch.utils.data import DataLoader
+import torch.utils.data as utils
 
 from .data_utils import MSDataLoader
-from .dataset import DIV2K, Benchmark
+from .dataset import DIV2K, Benchmark, LargeDiffDIV2K
 
 
 
@@ -100,3 +101,26 @@ def get_test_dataloader(config, transform=None):
                               num_workers=num_workers)
     return dataloader
 
+
+def get_train_dataloader_largediff(config, transform=None):
+    base_dir = config.data.base_dir
+    params = config.data.train.params
+    train_dataset = LargeDiffDIV2K(is_train=True, base_dir=base_dir,
+                                  rgb_range=config.data.rgb_range, 
+                                  **params)
+    train_dataloader = utils.DataLoader(train_dataset, 
+                                        batch_size=config.train.batch_size,
+                                        shuffle=True ) 
+    return train_dataloader
+
+
+def get_valid_dataloader_largediff(config, transform=None):
+    base_dir = config.data.base_dir
+    params = config.data.valid.params
+    valid_dataset = LargeDiffDIV2K(is_train=False, base_dir=base_dir,
+                                  rgb_range=config.data.rgb_range,
+                                  **params)
+    valid_dataloader = utils.DataLoader(valid_dataset, 
+                                        batch_size=config.eval.batch_size,
+                                        shuffle=False) 
+    return valid_dataloader

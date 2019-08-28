@@ -1,0 +1,42 @@
+base_config: 'configs/largediff/base.yml'
+
+
+teacher_model:
+  name: 'pointfsrcnn_teacher'
+  params:
+    scale: 2
+    n_colors: 1
+
+
+train:
+  batch_size: 192
+  teacher_dir: ''
+  num_epochs: 2000
+
+
+eval:
+  batch_size: 600
+
+
+scheduler:
+  name: 'none'
+
+
+optimizer:
+  name: adam
+  params:
+    lr: 0.0001
+
+
+loss:
+  name: 'l1loss'
+  params:
+    reduction: 'mean'
+
+
+visualizer:
+  name: 'step1'
+
+
+gpu: 1
+
