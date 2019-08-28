@@ -18,7 +18,7 @@ data:
         base_dir: './data/DIV2K'
         augment: False
         patch_size: 192
-        data_range: '801-810'
+        data_range: '801-802'
 
   test:
     - name: 'Set5'

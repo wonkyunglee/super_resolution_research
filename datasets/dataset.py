@@ -21,6 +21,4 @@ class Benchmark(BaseBenchmarkDataset):
         super(Benchmark, self).__init__(
             scale, n_colors, rgb_range, batch_size, base_dir, name
         )
-
-
-
+        
