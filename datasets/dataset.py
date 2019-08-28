@@ -28,21 +28,21 @@ class Benchmark(BaseBenchmarkDataset):
 
 
 class LargeDiffDIV2K(utils.TensorDataset):
-    
-    def __init__(self, is_train=True, base_dir='data/LargeDiffDIV2K/', 
+
+    def __init__(self, is_train=True, base_dir='data/LargeDiffDIV2K/',
                  rgb_range=1, data_type='large', **_):
         super(LargeDiffDIV2K, self).__init__()
-        
+
         train_x_path = os.path.join(base_dir, 'train_x.pkl')
         valid_x_path = os.path.join(base_dir, 'valid_x.pkl')
         train_y_path = os.path.join(base_dir, 'train_y.pkl')
         valid_y_path = os.path.join(base_dir, 'valid_y.pkl')
-        
+
         train_x_small_path = os.path.join(base_dir, 'train_x_small.pkl')
         valid_x_small_path = os.path.join(base_dir, 'valid_x_small.pkl')
         train_y_small_path = os.path.join(base_dir, 'train_y_small.pkl')
         valid_y_small_path = os.path.join(base_dir, 'valid_y_small.pkl')
-        
+
         if is_train:
             with open(train_x_path, 'rb') as f:
                 tensor_x = pickle.load(f)
@@ -61,7 +61,7 @@ class LargeDiffDIV2K(utils.TensorDataset):
                 tensor_x_small = pickle.load(f)
             with open(valid_y_small_path, 'rb') as f:
                 tensor_y_small = pickle.load(f)
-                
+
         if data_type == 'large':
             x = tensor_x
             y = tensor_y
@@ -72,19 +72,16 @@ class LargeDiffDIV2K(utils.TensorDataset):
             x = np.concatenate((tensor_x, tensor_x_small), axis=0)
             y = np.concatenate((tensor_y, tensor_y_small), axis=0)
 
-        x = torch.stack([torch.Tensor(i) for i in x]) 
+        x = torch.stack([torch.Tensor(i) for i in x])
         y = torch.Tensor(y)
         x *= rgb_range / 255
         y *= rgb_range / 255
 
         self.tensors = (x, y)
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
+

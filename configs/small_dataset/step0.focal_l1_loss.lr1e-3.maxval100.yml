@@ -1,3 +1,4 @@
+
 base_config: 'configs/small_dataset/base.yml'
 
 
@@ -11,7 +12,7 @@ student_model:
 train:
   batch_size: 32
   num_epochs: 1000
-  student_dir: '.base.focal_l1_loss.lr1e-3'
+  student_dir: '.base.focal_l1_loss.lr1e-3.maxval100'
 
 
 eval:
@@ -32,6 +33,8 @@ loss:
   name: 'focal_l1_loss'
   params:
     reduction: 'mean'
+    max_val: 100
+    min_val: 0.1
 
 
 visualizer:
