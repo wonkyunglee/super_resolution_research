@@ -1,0 +1,42 @@
+base_config: 'configs/verification/base.yml'
+
+
+student_model:
+  name: 'rf5_student'
+  params:
+    scale: 2
+    n_colors: 1
+
+
+train:
+  batch_size: 32
+  num_epochs: 1000
+  student_dir: '.base.lowcap'
+
+
+eval:
+  batch_size: 1
+
+
+scheduler:
+  name: 'none'
+
+
+optimizer:
+  name: adam
+  params:
+    lr: 0.001
+
+
+loss:
+  name: 'l1loss'
+  params:
+    reduction: 'mean'
+
+
+visualizer:
+  name: 'step0'
+
+
+gpu: 1
+

@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import os
 import math
+import numpy as np
 
 device = None
 
@@ -24,7 +25,7 @@ def get_loss(config):
     return f(**config.loss.params)
 
 
-def l2loss(reduction='sum', **_):
+def l2loss(reduction='mean', **_):
     return torch.nn.MSELoss(reduction=reduction)
 
 
@@ -32,7 +33,7 @@ def l2loss(reduction='sum', **_):
 #     return torch.nn.L1Loss(reduction=reduction)
 
 
-def l1loss(reduction='sum', **_):
+def l1loss(reduction='mean', **_):
     l1loss_fn = torch.nn.L1Loss(reduction=reduction)
 
     def loss_fn(pred_dict, HR, **_):
@@ -50,7 +51,7 @@ def l1loss(reduction='sum', **_):
             'val':l1loss_fn}
 
 
-def gaussian_kernel_loss(reduction='sum', scale=2, **_):
+def gaussian_kernel_loss(reduction='mean', scale=2, **_):
 
     l1loss_fn = torch.nn.L1Loss(reduction=reduction)
     max_val = 5
@@ -73,7 +74,7 @@ def gaussian_kernel_loss(reduction='sum', scale=2, **_):
             'val': l1loss_fn}
 
 
-def focal_l1_loss(reduction='sum', scale=2, max_val=5, min_val=0.5, **_):
+def focal_l1_loss(reduction='mean', scale=2, max_val=5, min_val=0.5, **_):
 
     l1loss_fn = torch.nn.L1Loss(reduction=reduction)
     def loss_fn(pred_dict, LR, HR):
@@ -94,7 +95,7 @@ def focal_l1_loss(reduction='sum', scale=2, max_val=5, min_val=0.5, **_):
             'val': l1loss_fn}
 
 
-def distillation_loss(distill, reduction='sum', standardization=False,
+def distillation_loss(distill, reduction='mean', standardization=False,
                       lambda1=1, lambda2=1, gt_loss_type='l1',
                       distill_loss_type='l1', **_):
     layers_for_distill = []
@@ -140,7 +141,7 @@ def distillation_loss(distill, reduction='sum', standardization=False,
             'val':l1loss_fn}
 
 
-def attend_similarity_loss(attend, reduction='sum', standardization=False,
+def attend_similarity_loss(attend, reduction='mean', standardization=False,
                            lambda1=1, lambda2=1, lambda3=1, reverse=False, **_):
 
     layers_for_attend = []
@@ -200,7 +201,7 @@ def attend_similarity_loss(attend, reduction='sum', standardization=False,
             'val':l1loss_fn}
 
 
-def gaussian_mle_loss(reduction='sum', **_):
+def gaussian_mle_loss(reduction='mean', **_):
     l1loss_fn = torch.nn.L1Loss(reduction=reduction)
 
     def loss_fn(pred_dict, HR, **_):
@@ -237,5 +238,120 @@ def contrastive_loss(reduction='mean', lambda1=1, lambda2=1, margin=0.1, **_):
 
     return {'train': loss_fn,
             'val': loss_fn}
+
+
+def diff_metric_loss(reduction='mean', w=15, h=15, stride=5, offset=1,
+                     lambda1=1.0, lambda2=0.1, **_):
+    l1loss_fn = torch.nn.L1Loss(reduction=reduction)
+
+    def get_diff_map(tensor):
+        batch_size = tensor.shape[0]
+        feature_dim = tensor.shape[1]
+        h, w = tensor.shape[-2:]
+        diff_map = torch.zeros((batch_size, h*w, h*w)).to(device)
+        tensor = tensor.reshape(batch_size, feature_dim, h*w)
+
+        index_x_upper = torch.arange(w*h).long()
+        index_y_upper = torch.arange(w*h).long()
+        index_x_lower = torch.arange(w*h).long()
+        index_y_lower = torch.arange(w*h).long()
+
+        for i in range(1, w*h):
+            index_x_upper += 1
+            index_x_upper = index_x_upper[:-1]
+            index_y_upper = index_y_upper[:-1]
+
+            index_y_lower += 1
+            index_x_lower = index_x_lower[:-1]
+            index_y_lower = index_y_lower[:-1]
+
+
+            diff_map[:, index_y_upper, index_x_upper] = torch.abs(tensor[:,:, i:] - tensor[:,:,:-i]).sum(1)
+            diff_map[:, index_y_lower, index_x_lower] = torch.abs(tensor[:,:, i:] - tensor[:,:,:-i]).sum(1)
+        return diff_map
+
+
+    def loss_fn(pred_dict, HR,**_):
+        gt_loss = 0
+        loss_dict = dict()
+        pred_hr = pred_dict['hr']
+        gt_loss = l1loss_fn(pred_hr, HR)
+
+        upscaled_lr = pred_dict['upscaled_lr']
+        diff = torch.abs(HR - upscaled_lr)
+        diff_map = get_diff_map(diff[:,:,:stride*h:stride, :stride*w:stride])
+
+        rx = np.random.randint(stride-1)
+        ry = np.random.randint(stride-1)
+        features = pred_dict['mapping']
+        feature_diff_map = get_diff_map(features[:,:,ry:ry+stride*h:stride,rx:rx+stride*w:stride])
+        metric_loss = l1loss_fn(feature_diff_map, diff_map * offset)
+
+
+        loss_dict['loss'] = lambda1 * gt_loss + lambda2 * metric_loss
+        loss_dict['gt_loss'] = gt_loss
+        loss_dict['metric_loss'] = metric_loss
+        return loss_dict
+
+
+    return {'train':loss_fn,
+            'val':l1loss_fn}
+
+
+def diff_metric_margin_loss(reduction='mean', w=15, h=15, stride=5, offset=1,
+                     lambda1=1.0, lambda2=0.1, **_):
+    l1loss_fn = torch.nn.L1Loss(reduction=reduction)
+
+    def get_diff_map(tensor):
+        batch_size = tensor.shape[0]
+        feature_dim = tensor.shape[1]
+        h, w = tensor.shape[-2:]
+        diff_map = torch.zeros((batch_size, h*w, h*w)).to(device)
+        tensor = tensor.reshape(batch_size, feature_dim, h*w)
+
+        index_x_upper = torch.arange(w*h).long()
+        index_y_upper = torch.arange(w*h).long()
+        index_x_lower = torch.arange(w*h).long()
+        index_y_lower = torch.arange(w*h).long()
+
+        for i in range(1, w*h):
+            index_x_upper += 1
+            index_x_upper = index_x_upper[:-1]
+            index_y_upper = index_y_upper[:-1]
+
+            index_y_lower += 1
+            index_x_lower = index_x_lower[:-1]
+            index_y_lower = index_y_lower[:-1]
+
+
+            diff_map[:, index_y_upper, index_x_upper] = torch.abs(tensor[:,:, i:] - tensor[:,:,:-i]).sum(1)
+            diff_map[:, index_y_lower, index_x_lower] = torch.abs(tensor[:,:, i:] - tensor[:,:,:-i]).sum(1)
+        return diff_map
+
+
+    def loss_fn(pred_dict, HR,**_):
+        gt_loss = 0
+        loss_dict = dict()
+        pred_hr = pred_dict['hr']
+        gt_loss = l1loss_fn(pred_hr, HR)
+
+        upscaled_lr = pred_dict['upscaled_lr']
+        diff = torch.abs(HR - upscaled_lr)
+        diff_map = get_diff_map(diff[:,:,:stride*h:stride, :stride*w:stride])
+
+        rx = np.random.randint(stride-1)
+        ry = np.random.randint(stride-1)
+        features = pred_dict['mapping']
+        feature_diff_map = get_diff_map(features[:,:,ry:ry+stride*h:stride,rx:rx+stride*w:stride])
+        metric_loss = max(0, torch.abs(diff_map * offset - feature_diff_map).mean())
+
+        loss_dict['loss'] = lambda1 * gt_loss + lambda2 * metric_loss
+        loss_dict['gt_loss'] = gt_loss
+        loss_dict['metric_loss'] = metric_loss
+        return loss_dict
+
+
+    return {'train':loss_fn,
+            'val':l1loss_fn}
 
 

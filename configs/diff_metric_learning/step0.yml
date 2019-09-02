@@ -1,0 +1,49 @@
+base_config: 'configs/diff_metric_learning/base.yml'
+
+
+student_model:
+  name: 'fsrcnn_student'
+  params:
+    scale: 2
+    n_colors: 1
+
+
+train:
+  batch_size: 32
+  num_epochs: 2000
+  student_dir: ''
+
+
+eval:
+  batch_size: 1
+
+
+scheduler:
+  name: 'step'
+  params:
+    step_size: 428
+    gamma: 0.5
+
+
+
+
+optimizer:
+  name: adam
+  params:
+    lr: 0.001
+
+
+loss:
+  name: 'diff_metric_loss'
+  params:
+    reduction: 'mean'
+    lambda1: 1.0
+    lambda2: 0.1
+
+
+visualizer:
+  name: 'step0'
+
+
+gpu: 0
+

@@ -777,6 +777,158 @@ class PointFSRCNN(nn.Module):
         return self.network(x)
 
 
+class RF5Net(nn.Module):
+    def __init__(self, scale, n_colors, d=120, s=12, m_1=4):
+        super(RF5Net, self).__init__()
+
+        self.scale = scale
+
+        self.feature_extraction = []
+        self.feature_extraction.append(nn.Sequential(
+            nn.Conv2d(in_channels=n_colors,
+                      out_channels=d, kernel_size=3, stride=1, padding=1,
+                      ),
+            nn.PReLU(),
+            nn.Conv2d(in_channels=d, out_channels=d,
+                      kernel_size=3, stride=1, padding=1,
+                      ),
+            nn.PReLU()))
+
+        self.shrinking = []
+        self.shrinking.append(nn.Sequential(
+            nn.Conv2d(in_channels=d, out_channels=s,
+                      kernel_size=1, stride=1, padding=0),
+            nn.PReLU()))
+
+        self.mapping = []
+        for _ in range(m_1):
+            self.mapping.append(nn.Sequential(
+                nn.Conv2d(in_channels=s, out_channels=s,
+                          kernel_size=1, stride=1, padding=0,
+                          ),
+                nn.PReLU()))
+
+        self.expanding = []
+        self.expanding.append(nn.Sequential(
+            nn.Conv2d(in_channels=s, out_channels=s,
+                      kernel_size=1, stride=1, padding=0),
+            nn.PReLU()))
+
+
+        self.last_layer = []
+        self.last_layer.append(nn.Sequential(
+            #nn.Conv2d(d, n_colors, kernel_size=9, stride=1, padding=4))
+            nn.Conv2d(s, n_colors, kernel_size=1, stride=1, padding=0))
+        )
+
+        self.network = nn.Sequential(
+            OrderedDict([
+                ('feature_extraction', nn.Sequential(*self.feature_extraction)),
+                ('shrinking', nn.Sequential(*self.shrinking)),
+                ('mapping', nn.Sequential(*self.mapping)),
+                ('expanding', nn.Sequential(*self.expanding)),
+                ('last_layer', nn.Sequential(*self.last_layer)),
+            ]))
+
+
+    def forward(self, x):
+        return self.network(x)
+
+
+class RF5Net2(nn.Module):
+    def __init__(self, scale, n_colors, d=120, s=12, m_1=4):
+        super(RF5Net2, self).__init__()
+
+        self.scale = scale
+
+        self.feature_extraction = []
+        self.feature_extraction.append(nn.Sequential(
+            nn.Conv2d(in_channels=n_colors,
+                      out_channels=d, kernel_size=3, stride=1, padding=1,
+                      ),
+            nn.PReLU(),
+            nn.Conv2d(in_channels=d, out_channels=d,
+                      kernel_size=1, stride=1, padding=0,
+                      ),
+            nn.PReLU()))
+
+        self.shrinking = []
+        self.shrinking.append(nn.Sequential(
+            nn.Conv2d(in_channels=d, out_channels=s,
+                      kernel_size=1, stride=1, padding=0),
+            nn.PReLU()))
+
+        self.mapping = []
+        for _ in range(m_1):
+            self.mapping.append(nn.Sequential(
+                nn.Conv2d(in_channels=s, out_channels=s,
+                          kernel_size=1, stride=1, padding=0,
+                          ),
+                nn.PReLU()))
+
+        self.expanding = []
+        self.expanding.append(nn.Sequential(
+            nn.Conv2d(in_channels=s, out_channels=s,
+                      kernel_size=3, stride=1, padding=1),
+            nn.PReLU()))
+
+
+        self.last_layer = []
+        self.last_layer.append(nn.Sequential(
+            #nn.Conv2d(d, n_colors, kernel_size=9, stride=1, padding=4))
+            nn.Conv2d(s, n_colors, kernel_size=1, stride=1, padding=0))
+        )
+
+        self.network = nn.Sequential(
+            OrderedDict([
+                ('feature_extraction', nn.Sequential(*self.feature_extraction)),
+                ('shrinking', nn.Sequential(*self.shrinking)),
+                ('mapping', nn.Sequential(*self.mapping)),
+                ('expanding', nn.Sequential(*self.expanding)),
+                ('last_layer', nn.Sequential(*self.last_layer)),
+            ]))
+
+
+    def forward(self, x):
+        return self.network(x)
+
+
+class RF5Net3(nn.Module):
+    def __init__(self, scale, n_colors, d=400, s=12, m_1=4):
+        super(RF5Net3, self).__init__()
+
+        self.scale = scale
+
+        self.feature_extraction = []
+        self.feature_extraction.append(nn.Sequential(
+            nn.Conv2d(in_channels=n_colors,
+                      out_channels=d, kernel_size=3, stride=1, padding=1,
+                      ),
+            nn.PReLU(),
+            nn.Conv2d(in_channels=d, out_channels=d,
+                      kernel_size=3, stride=1, padding=1,
+                      ),
+            nn.PReLU()))
+
+        self.last_layer = []
+        self.last_layer.append(nn.Sequential(
+            #nn.Conv2d(d, n_colors, kernel_size=9, stride=1, padding=4))
+            nn.Conv2d(d, n_colors, kernel_size=1, stride=1, padding=0))
+        )
+
+        self.network = nn.Sequential(
+            OrderedDict([
+                ('feature_extraction', nn.Sequential(*self.feature_extraction)),
+                ('last_layer', nn.Sequential(*self.last_layer)),
+            ]))
+
+
+    def forward(self, x):
+        return self.network(x)
+
+
+
+
 class BaseNet(nn.Module):
 
     def __init__(self):
@@ -1181,6 +1333,7 @@ class FSRCNNStudentNet(BaseNet):
 
         residual_hr = x
         hr = upscaled_lr + residual_hr
+        ret_dict['upscaled_lr'] = upscaled_lr
         ret_dict['hr'] = hr
         ret_dict['residual_hr'] = residual_hr
 
@@ -1819,6 +1972,125 @@ class PointFSRCNNStudentNet(BaseNet):
         return ret_dict
 
 
+class RF5StudentNet(BaseNet):
+    def __init__(self, scale, n_colors, d=56, s=12, m_1=4, m_2=3,layers_to_attend=None, modules_to_freeze=None,
+                 initialize_from=None, modules_to_initialize=None, dilation=1, relational_kernel_size=3, layer_num=2):
+        super(RF5StudentNet, self).__init__()
+
+        self.layers_to_attend = layers_to_attend if layers_to_attend is not None else []
+        self.scale = scale
+        upscale_factor = scale
+
+        self.initialize_from = initialize_from
+        self.modules_to_freeze = modules_to_freeze
+        self.modules_to_initialize = modules_to_initialize
+
+        self.backbone = RF5Net(scale, n_colors, d, s, m_1)
+        self.weight_init()
+        if initialize_from is not None:
+            self.load_pretrained_model()
+        if modules_to_freeze is not None:
+            self.freeze_modules()
+
+
+    def forward(self, LR, teacher_pred_dict=None):
+        ret_dict = dict()
+        upscaled_lr = nn.functional.interpolate(LR, scale_factor=self.scale, mode='bicubic')
+        x = upscaled_lr
+
+        layer_names = self.backbone.network._modules.keys()
+        for layer_name in layer_names:
+            x = self.backbone.network._modules[layer_name](x)
+            ret_dict[layer_name] = x
+
+        residual_hr = x
+        hr = upscaled_lr + residual_hr
+        ret_dict['hr'] = hr
+        ret_dict['residual_hr'] = residual_hr
+
+        return ret_dict
+
+
+class RF52StudentNet(BaseNet):
+    def __init__(self, scale, n_colors, d=56, s=12, m_1=4, m_2=3,layers_to_attend=None, modules_to_freeze=None,
+                 initialize_from=None, modules_to_initialize=None, dilation=1, relational_kernel_size=3, layer_num=2):
+        super(RF52StudentNet, self).__init__()
+
+        self.layers_to_attend = layers_to_attend if layers_to_attend is not None else []
+        self.scale = scale
+        upscale_factor = scale
+
+        self.initialize_from = initialize_from
+        self.modules_to_freeze = modules_to_freeze
+        self.modules_to_initialize = modules_to_initialize
+
+        self.backbone = RF5Net2(scale, n_colors, d, s, m_1)
+        self.weight_init()
+        if initialize_from is not None:
+            self.load_pretrained_model()
+        if modules_to_freeze is not None:
+            self.freeze_modules()
+
+
+    def forward(self, LR, teacher_pred_dict=None):
+        ret_dict = dict()
+        upscaled_lr = nn.functional.interpolate(LR, scale_factor=self.scale, mode='bicubic')
+        x = upscaled_lr
+
+        layer_names = self.backbone.network._modules.keys()
+        for layer_name in layer_names:
+            x = self.backbone.network._modules[layer_name](x)
+            ret_dict[layer_name] = x
+
+        residual_hr = x
+        hr = upscaled_lr + residual_hr
+        ret_dict['hr'] = hr
+        ret_dict['residual_hr'] = residual_hr
+
+        return ret_dict
+
+class RF53StudentNet(BaseNet):
+    def __init__(self, scale, n_colors, d=56, s=12, m_1=4, m_2=3,layers_to_attend=None, modules_to_freeze=None,
+                 initialize_from=None, modules_to_initialize=None, dilation=1, relational_kernel_size=3, layer_num=2):
+        super(RF53StudentNet, self).__init__()
+
+        self.layers_to_attend = layers_to_attend if layers_to_attend is not None else []
+        self.scale = scale
+        upscale_factor = scale
+
+        self.initialize_from = initialize_from
+        self.modules_to_freeze = modules_to_freeze
+        self.modules_to_initialize = modules_to_initialize
+
+        self.backbone = RF5Net3(scale, n_colors, d, s, m_1)
+        self.weight_init()
+        if initialize_from is not None:
+            self.load_pretrained_model()
+        if modules_to_freeze is not None:
+            self.freeze_modules()
+
+
+    def forward(self, LR, teacher_pred_dict=None):
+        ret_dict = dict()
+        upscaled_lr = nn.functional.interpolate(LR, scale_factor=self.scale, mode='bicubic')
+        x = upscaled_lr
+
+        layer_names = self.backbone.network._modules.keys()
+        for layer_name in layer_names:
+            x = self.backbone.network._modules[layer_name](x)
+            ret_dict[layer_name] = x
+
+        residual_hr = x
+        hr = upscaled_lr + residual_hr
+        ret_dict['hr'] = hr
+        ret_dict['residual_hr'] = residual_hr
+
+        return ret_dict
+
+
+
+
+
 # For Resolution Disentangling Experiments
 def get_disentangle_student(scale, n_colors, **kwargs):
     return DisentangleStudentNet(scale, n_colors, **kwargs)
@@ -1906,6 +2178,18 @@ def get_pointfsrcnn_teacher(scale, n_colors, **kwargs):
 
 def get_pointfsrcnn_student(scale, n_colors, **kwargs):
     return PointFSRCNNStudentNet(scale, n_colors, **kwargs)
+
+
+def get_rf5_student(scale, n_colors, **kwargs):
+    return RF5StudentNet(scale, n_colors, **kwargs)
+
+
+def get_rf52_student(scale, n_colors, **kwargs):
+    return RF52StudentNet(scale, n_colors, **kwargs)
+
+
+def get_rf53_student(scale, n_colors, **kwargs):
+    return RF53StudentNet(scale, n_colors, **kwargs)
 
 
 def get_model(config, model_type):

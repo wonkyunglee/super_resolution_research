@@ -193,6 +193,7 @@ def run(config):
     train_dir = config.train.dir
 
     student_model = get_model(config, model_type).to(device)
+    print('The nubmer of parameters : %d'%count_parameters(student_model))
     criterion = get_loss(config)
     trainable_params = filter(lambda p: p.requires_grad,
                               student_model.parameters())
