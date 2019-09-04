@@ -1,0 +1,68 @@
+base_config: 'configs/compress/base.yml'
+
+
+teacher_model:
+  name: 'compressfsrcnn_teacher'
+  params:
+    scale: 2
+    n_colors: 1
+    m_1: 2
+
+
+student_model:
+  name: 'fsrcnn_student'
+  params:
+    scale: 2
+    n_colors: 1
+    # modules_to_freeze:
+    #   - 'expanding'
+    #   - 'mapping2'
+    #   - 'expanding2'
+    initialize_from:
+      - 'results/compress/compressfsrcnn_teacher/checkpoint/'
+    modules_to_initialize:
+      - - 'feature_extraction'
+        - 'shrinking'
+        - 'last_layer'
+
+
+train:
+  batch_size: 32
+  num_epochs: 1000
+  teacher_dir: ''
+  student_dir: '.distill_expanding'
+
+
+eval:
+  batch_size: 1
+
+
+scheduler:
+  name: 'step'
+  params:
+    step_size: 200
+    gamma: 0.2
+
+
+optimizer:
+  name: adam
+  params:
+    lr: 0.001
+
+
+loss:
+  name: 'distillation_loss'
+  params:
+    reduction: 'mean'
+    standardization: False
+    distill:
+    # - 'teacher_layer_name:student_layer_name:weight'
+      - 'expanding:expanding:1'
+
+
+visualizer:
+  name: 'step2'
+
+
+gpu: 0
+
