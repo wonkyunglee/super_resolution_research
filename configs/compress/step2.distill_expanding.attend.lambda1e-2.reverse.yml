@@ -30,7 +30,7 @@ train:
   batch_size: 32
   num_epochs: 1000
   teacher_dir: ''
-  student_dir: '.distill_expanding.lambda1e-2'
+  student_dir: '.distill_expanding.attend.lambda1e-2.reverse'
 
 
 eval:
@@ -51,18 +51,23 @@ optimizer:
 
 
 loss:
-  name: 'distillation_loss'
+  name: 'attend_similarity_loss'
   params:
     reduction: 'mean'
     standardization: False
-    distill:
+    lambda1: 1
+    lambda2: 1
+    lambda3: 0
+    reverse: True
+    attend:
     # - 'teacher_layer_name:student_layer_name:weight'
-      - 'expanding:expanding:0.01'
+      - 'expanding:expanding:1'
 
 
 visualizer:
   name: 'step2'
 
 
-gpu: 1
+gpu: 0
+
 

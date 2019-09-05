@@ -1,10 +1,10 @@
-base_config: 'configs/compress/base.yml'
+base_config: 'configs/compress/base.4x.yml'
 
 
 teacher_model:
   name: 'compressfsrcnn_teacher'
   params:
-    scale: 2
+    scale: 4
     n_colors: 1
     m_1: 2
 
@@ -12,14 +12,14 @@ teacher_model:
 student_model:
   name: 'fsrcnn_student'
   params:
-    scale: 2
+    scale: 4
     n_colors: 1
     # modules_to_freeze:
     #   - 'expanding'
     #   - 'mapping2'
     #   - 'expanding2'
     initialize_from:
-      - 'results/compress/compressfsrcnn_teacher/checkpoint/'
+      - 'results/compress/compressfsrcnn_teacher.4x/checkpoint/'
     modules_to_initialize:
       - - 'feature_extraction'
         - 'shrinking'
@@ -29,8 +29,8 @@ student_model:
 train:
   batch_size: 32
   num_epochs: 1000
-  teacher_dir: ''
-  student_dir: '.distill_expanding.lambda1e-2'
+  teacher_dir: '.4x'
+  student_dir: '.distill_expanding.attend.lambda1e-2.reverse.4x'
 
 
 eval:
@@ -51,13 +51,17 @@ optimizer:
 
 
 loss:
-  name: 'distillation_loss'
+  name: 'attend_similarity_loss'
   params:
     reduction: 'mean'
     standardization: False
-    distill:
+    lambda1: 1
+    lambda2: 1
+    lambda3: 0
+    reverse: True
+    attend:
     # - 'teacher_layer_name:student_layer_name:weight'
-      - 'expanding:expanding:0.01'
+      - 'expanding:expanding:1'
 
 
 visualizer:
@@ -65,4 +69,5 @@ visualizer:
 
 
 gpu: 1
+
 

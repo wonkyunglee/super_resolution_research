@@ -150,9 +150,9 @@ def attend_similarity_loss(attend, reduction='mean', standardization=False,
         weight = float(weight)
         layers_for_attend.append((teacher_layer, student_layer, weight))
 
-    l1loss_fn = l1loss(reduction=reduction)
-    l2loss_fn = l2loss(reduction=reduction)
     cross_entropy_loss_fn = torch.nn.BCELoss()
+    l1loss_fn = torch.nn.L1Loss(reduction=reduction)
+    l2loss_fn = torch.nn.MSELoss(reduction=reduction)
 
     def distill_loss_fn(tl, sl, attention_map, reverse=False):
         if reverse:
