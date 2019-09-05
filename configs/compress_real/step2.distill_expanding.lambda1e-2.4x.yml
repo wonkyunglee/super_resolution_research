@@ -1,0 +1,70 @@
+base_config: 'configs/compress_real/base.4x.yml'
+
+
+teacher_model:
+  name: 'realcompressfsrcnn_teacher'
+  params:
+    scale: 4
+    n_colors: 1
+    m_1: 2
+
+
+student_model:
+  name: 'realfsrcnn_student'
+  params:
+    scale: 4
+    n_colors: 1
+    # modules_to_freeze:
+    #   - 'expanding'
+    #   - 'mapping2'
+    #   - 'expanding2'
+    initialize_from:
+      - 'results/compress_real/realcompressfsrcnn_teacher/checkpoint/'
+    modules_to_initialize:
+      - - 'feature_extraction'
+        - 'shrinking'
+        - 'last_layer'
+
+
+train:
+  batch_size: 32
+  num_epochs: 1000
+  teacher_dir: '.4x'
+  student_dir: '.distill_expanding.lambda1e-2.4x'
+
+
+eval:
+  batch_size: 1
+
+
+scheduler:
+  name: 'step'
+  params:
+    step_size: 200
+    gamma: 0.2
+
+
+optimizer:
+  name: adam
+  params:
+    lr: 0.001
+
+
+loss:
+  name: 'distillation_loss'
+  params:
+    reduction: 'mean'
+    standardization: False
+    lambda1: 1
+    lambda2: 0.01
+    distill:
+    # - 'teacher_layer_name:student_layer_name:weight'
+      - 'expanding:expanding:1'
+
+
+visualizer:
+  name: 'step2'
+
+
+gpu: 0
+

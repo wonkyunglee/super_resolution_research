@@ -1,0 +1,45 @@
+base_config: 'configs/compress_real/base.yml'
+
+
+student_model:
+  name: 'realfsrcnn_student'
+  params:
+    scale: 2
+    n_colors: 1
+
+
+train:
+  batch_size: 32
+  num_epochs: 1000
+  student_dir: '.base'
+
+
+eval:
+  batch_size: 1
+
+
+scheduler:
+  name: 'step'
+  params:
+    step_size: 200
+    gamma: 0.2
+
+
+optimizer:
+  name: adam
+  params:
+    lr: 0.001
+
+
+loss:
+  name: 'l1loss'
+  params:
+    reduction: 'mean'
+
+
+visualizer:
+  name: 'step0'
+
+
+gpu: 2
+
