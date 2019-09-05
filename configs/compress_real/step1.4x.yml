@@ -1,0 +1,43 @@
+base_config: 'configs/compress_real/base.4x.yml'
+
+
+teacher_model:
+  name: 'realcompressfsrcnn_teacher'
+  params:
+    scale: 4
+    n_colors: 1
+    m_1: 2
+
+
+train:
+  batch_size: 96
+  num_epochs: 300
+  teacher_dir: '.4x'
+
+
+eval:
+  batch_size: 1
+
+
+scheduler:
+  name: 'none'
+
+
+optimizer:
+  name: adam
+  params:
+    lr: 0.001
+
+
+loss:
+  name: 'l1loss'
+  params:
+    reduction: 'mean'
+
+
+visualizer:
+  name: 'step1'
+
+
+gpu: 0
+
