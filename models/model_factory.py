@@ -1179,7 +1179,6 @@ class RealCompressFSRCNN(nn.Module):
         return self.network(x)
 
 
-<<<<<<< HEAD
 class LargeCompressFSRCNN(nn.Module):
     def __init__(self, scale, n_colors, d=56, s=12, m_1=4, m_2=3, dilation=1):
         super(LargeCompressFSRCNN, self).__init__()
@@ -1347,8 +1346,6 @@ class Compress2xFSRCNN(nn.Module):
         return self.network(x)
 
 
-||||||| merged common ancestors
-=======
 class LRCompressFSRCNN(nn.Module):
     def __init__(self, scale, n_colors, d=56, s=12, m_1=4, m_2=3, dilation=1):
         super(LRCompressFSRCNN, self).__init__()
@@ -1410,8 +1407,6 @@ class LRCompressFSRCNN(nn.Module):
         return self.network(x)
 
 
-
->>>>>>> ham
 
 class BaseNet(nn.Module):
 
